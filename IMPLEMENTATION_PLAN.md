@@ -1,0 +1,27 @@
+# PingMe MVP Implementation Plan
+
+- **MVP goal:** Ship a deployable mobile app where friends can post time-limited activity pings, see active pings on a map or list, and accept an invite.
+- **MVP scope:** Include accounts, username friend search, friend requests, ping creation, notification preferences, push notifications, active ping map/list, acceptance counts, and basic profile settings.
+- **Defer:** Friends-of-friends open invites, ping groups, character customization, advanced scheduling rules, and sophisticated moderation until after validating the core loop.
+- **Client:** React Native with Expo and TypeScript; use Expo Router for navigation and EAS Build/Submit for iOS and Android deployment.
+- **Backend:** Supabase for managed PostgreSQL, Auth, Row Level Security, Realtime updates, and Edge Functions; use PostGIS for nearby/map queries if needed.
+- **Push:** Expo Push Notifications, with device tokens stored per user/device and delivery initiated by a server-side Edge Function.
+- **Maps/location:** `react-native-maps` with foreground location permission; store coordinates only when a user chooses a location for a ping. Avoid continuous background tracking.
+- **Data model:** `profiles(id, username, display_name, avatar_url)`; `friendships(requester_id, recipient_id, status)`; `pings(id, creator_id, activity, description, location_name, latitude, longitude, starts_at, expires_at, visibility)`; `ping_acceptances(ping_id, user_id, created_at)`; `notification_preferences(user_id, friend_id, activity, enabled)`; `push_devices(user_id, token, platform)`.
+- **Access rules:** Enable Row Level Security on every user table. Only friends can read a ping; only its creator can edit or delete it; only a ping's creator can see its acceptor list; a user can create or remove their own acceptance.
+- **Endpoint/API style:** Use Supabase Auth directly from the client; expose application actions as authenticated Edge Function routes (or equivalent RPCs), validate inputs server-side, and return JSON with consistent error codes.
+- **Endpoints:** `GET /profiles/search?username=` — search exact/prefix usernames, excluding self and existing friends; return a small paginated result set.
+- **Endpoints:** `POST /friend-requests` — send a request; `GET /friends` — list accepted friends and request state; `POST /friend-requests/{id}/accept` and `/decline`; `DELETE /friends/{id}` — remove a friend.
+- **Endpoints:** `GET /pings?bounds=&activity=&since=` — list active pings visible to the signed-in user, optionally filtered to map bounds or activity.
+- **Endpoints:** `POST /pings` — create a ping with activity, optional note/location, start time, and expiry; enforce reasonable maximum duration and validate coordinates.
+- **Endpoints:** `GET /pings/{id}` — fetch ping details; `PATCH /pings/{id}` — update own ping; `DELETE /pings/{id}` — cancel own ping.
+- **Endpoints:** `POST /pings/{id}/accept` and `DELETE /pings/{id}/accept` — accept or withdraw acceptance; `GET /pings/{id}/responses` — creator-only acceptor names and total count.
+- **Endpoints:** `GET /notification-preferences`; `PUT /notification-preferences` — get/update per-friend and per-activity opt-outs, with all friend pings enabled by default.
+- **Endpoints:** `POST /push-devices` and `DELETE /push-devices/{id}` — register or revoke a device token; server checks preferences before sending a ping notification.
+- **Core screens:** Sign in/onboarding; friend search and requests; map/list home with active pings; create-ping form; ping detail with accept action and response count; friends/preferences; profile/settings.
+- **Main flow:** User creates a ping with an expiry and optional place → backend saves it and selects opted-in friends → recipients receive push and see it in the feed/map → a friend accepts → creator sees updated names/count in real time.
+- **UX defaults:** Keep ping creation short with activity presets, optional location, and clear duration choices; show expiry and distance/location label; offer a list view when map permission is denied.
+- **Privacy/safety MVP:** Require mutual friendship for visibility and notifications; make location optional and tied to one ping; provide block/report actions and account deletion; never expose precise coordinates to non-friends.
+- **Reliability:** Expire pings in queries based on `expires_at`; add a scheduled cleanup job for old records; make ping creation/acceptance idempotent; handle push failures without losing the ping.
+- **Delivery sequence:** 1) Supabase schema, RLS, auth and profiles; 2) friendship flow; 3) create/read/expire pings; 4) list/map UI; 5) acceptances and realtime counts; 6) preferences and push; 7) privacy polish, app store builds, and deployment configuration.
+- **MVP acceptance checks:** Two users can become friends, configure default-on notifications, create and receive an active ping, view it on map/list, accept it, see the updated response count, and no longer see it after expiry.

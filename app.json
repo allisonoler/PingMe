@@ -1,12 +1,32 @@
 {
   "expo": {
-    "name": "PingMe", "slug": "pingme", "scheme": "pingme", "version": "1.0.0",
-    "orientation": "portrait", "userInterfaceStyle": "light",
+    "name": "PingMe",
+    "slug": "pingme",
+    "scheme": "pingme",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "plugins": ["expo-router", ["expo-location", { "locationWhenInUsePermission": "Allow PingMe to use your location when adding a place to a ping." }], "expo-notifications"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow PingMe to use your location when adding a place to a ping."
+        }
+      ],
+      "expo-notifications"
+    ],
     "experiments": { "typedRoutes": true },
     "ios": { "supportsTablet": true, "bundleIdentifier": "com.pingme.app" },
-    "android": { "package": "com.pingme.app", "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"] },
+    "android": {
+      "package": "com.pingme.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
     "web": { "bundler": "metro" }
   }
 }

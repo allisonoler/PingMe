@@ -1,6 +1,6 @@
 # PingMe
 
-PingMe is an Expo + React Native app for short-lived activity pings shared between friends. The app includes email authentication, username search and friend requests, an active ping feed/map, ping creation and acceptance, notification preferences, push registration, account deletion, and a Supabase migration with row-level security.
+PingMe is an Expo + React Native app for short-lived activity pings shared between friends. The app includes email authentication, username search and friend requests, an active ping feed/map, ping creation, editing and acceptance, notification preferences, push registration, account deletion, and a Supabase migration with row-level security.
 
 ## Run locally
 
@@ -19,7 +19,9 @@ The project pins Expo SDK 58 to match your Expo Go release; `expo install --fix`
 
 ## Backend setup
 
-Apply `supabase/migrations/202610250001_init.sql` with `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push`, or paste it into the Supabase SQL editor. It creates profile, friendship, ping, acceptance, notification preference, push device, block, and report tables; RLS policies; account deletion and count RPCs; and Realtime publication membership.
+`supabase/schema.sql` is the whole database, as one rerunnable file rather than a migration history. It creates profile, friendship, ping, acceptance, notification preference, push device, block, and report tables; RLS policies; account deletion and count RPCs; and Realtime publication membership. Apply it by pasting it into the Supabase SQL editor, which runs it in a single transaction, or with `psql "$DATABASE_URL" -f supabase/schema.sql`.
+
+Run it again whenever the file changes. It builds an empty database from scratch and, on a database that is already set up, applies only what has drifted without touching existing rows, so there is nothing to apply in order and no migration state to repair. Edit the file to describe the database you want; its header explains which objects it reconciles automatically and the one case (changing an existing column's type or default, or an existing key) that needs a line in its DRIFT section.
 
 Deploy push delivery:
 

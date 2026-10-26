@@ -9,6 +9,7 @@ import {
   Card,
   Empty,
   Header,
+  Identity,
   Page,
   Row,
   TextAction,
@@ -16,6 +17,7 @@ import {
 } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
 import { colors, space, type } from "../../lib/theme";
+import { nameOf } from "../../lib/identity";
 
 type Ping = {
   id: string;
@@ -175,10 +177,11 @@ export default function Home() {
                 })}
               </Text>
             </Row>
-            <Text style={[type.title, { marginTop: space.md }]}>
-              {p.profiles?.display_name ||
-                `@${p.profiles?.username || "friend"}`}
-            </Text>
+            <Identity
+              profile={p.profiles}
+              size="title"
+              style={{ marginTop: space.md }}
+            />
             {p.description ? (
               <Text style={[type.body, { marginTop: space.xs }]}>
                 {p.description}
@@ -202,24 +205,32 @@ export default function Home() {
                 ]}
               >
                 Going:{" "}
-                {p.ping_acceptances
-                  .map(
-                    (a) =>
-                      a.profiles?.display_name ||
-                      `@${a.profiles?.username || "friend"}`,
-                  )
-                  .join(", ")}
+                {p.ping_acceptances.map((a) => nameOf(a.profiles)).join(", ")}
               </Text>
             ) : null}
             <Row spread style={{ marginTop: space.lg }}>
               <Text style={type.small}>{p.acceptance_count || 0} going</Text>
               {p.is_own ? (
-                <Button
-                  title="Cancel"
-                  variant="secondary"
-                  compact
-                  onPress={() => cancel(p)}
-                />
+                <Row gap={space.sm}>
+                  <Button
+                    title="Edit"
+                    icon="create-outline"
+                    variant="secondary"
+                    compact
+                    onPress={() =>
+                      router.push({
+                        pathname: "/ping/[id]",
+                        params: { id: p.id },
+                      })
+                    }
+                  />
+                  <Button
+                    title="Cancel"
+                    variant="secondary"
+                    compact
+                    onPress={() => cancel(p)}
+                  />
+                </Row>
               ) : (
                 <Button
                   title={p.accepted ? "Going" : "I’m in"}

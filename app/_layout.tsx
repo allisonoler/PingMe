@@ -12,7 +12,7 @@ export default function Layout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: colors.paper },
+            contentStyle: { backgroundColor: colors.canvas },
           }}
         />
       </AuthProvider>

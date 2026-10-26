@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { radius } from "../lib/theme";
+import { nameOf } from "../lib/identity";
 
 export type MapPing = {
   id: string;
@@ -31,7 +32,9 @@ export function PingMap({ pings }: { pings: MapPing[] }) {
         <Marker
           key={p.id}
           coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-          title={`${p.profiles?.display_name || p.profiles?.username} · ${p.activity}`}
+          // A marker title is one string, so nameOf picks the name and falls
+          // back to the `@`-prefixed handle rather than a bare username.
+          title={`${nameOf(p.profiles)} · ${p.activity}`}
           description={p.location_name || p.description || ""}
         />
       ))}

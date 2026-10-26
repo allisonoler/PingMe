@@ -46,7 +46,7 @@ export default function AuthCallback() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: colors.canvas,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: space.xl,

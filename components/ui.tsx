@@ -1,7 +1,10 @@
 import React from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Pressable,
+  StyleProp,
   StyleSheet,
   Switch,
   Text,
@@ -9,10 +12,12 @@ import {
   TextInputProps,
   View,
   ViewProps,
+  ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, hit, radius, space, type } from "../lib/theme";
+import { handleOf, type IdentityProfile } from "../lib/identity";
 
 export type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -34,8 +39,19 @@ export function Page({ children, style, ...props }: ViewProps) {
   );
 }
 
-/** Bottom padding for scrollable content so the last row clears the tab bar. */
-export const listContent = { paddingBottom: space.xxxl };
+/**
+ * Content-container style for a scrollable screen. The bottom padding lets the
+ * last row clear the tab bar; `flexGrow` keeps a short screen filling the
+ * viewport so a centred `Page` still centres. The background is repeated here
+ * because screens that nest `Page` inside the ScrollView leave this padding
+ * strip outside `Page` entirely, and without it the gap falls through to
+ * whatever the navigator paints its scene with rather than our own canvas.
+ */
+export const listContent = {
+  flexGrow: 1,
+  paddingBottom: space.xxxl,
+  backgroundColor: colors.canvas,
+};
 
 export function Column({
   gap = space.md,
@@ -240,21 +256,297 @@ export function IconButton({
   );
 }
 
-export function Field(props: TextInputProps) {
+/**
+ * Label and supporting copy for a field. Shared with LockedField so an editable
+ * value and a fixed one can sit in a stack and read as the same kind of thing.
+ *
+ * `error` replaces `hint` rather than stacking under it: the rule and the
+ * complaint about the rule are the same sentence, so showing both says it twice.
+ */
+function FieldFrame({
+  label,
+  hint,
+  error,
+  children,
+  style,
+}: React.PropsWithChildren<{
+  label?: string;
+  hint?: string;
+  error?: string;
+  style?: StyleProp<ViewStyle>;
+}>) {
+  if (!label && !hint && !error && !style) return <>{children}</>;
   return (
-    <TextInput
-      placeholderTextColor={colors.placeholder}
-      {...props}
-      style={[
-        s.input,
-        props.multiline ? s.inputMultiline : s.inputSingle,
-        props.style,
-      ]}
-    />
+    <View style={[{ gap: space.sm }, style]}>
+      {label ? <Text style={type.fieldLabel}>{label}</Text> : null}
+      {children}
+      {error ? (
+        <Text style={[type.small, { color: colors.red }]}>{error}</Text>
+      ) : hint ? (
+        <Text style={type.small}>{hint}</Text>
+      ) : null}
+    </View>
   );
 }
 
-/** Selectable pill. Bordered when unselected so it reads against `paper`. */
+/**
+ * Text input. `label`/`hint` name what the value is *for* rather than leaving a
+ * placeholder to carry it, and `prefix` pins an affix inside the box — an `@`
+ * makes a username read as a handle while it is being typed.
+ *
+ * `style` lands on the outermost node, so layout props still apply whether or
+ * not a label wraps the input.
+ */
+export function Field({
+  label,
+  hint,
+  error,
+  prefix,
+  style,
+  multiline,
+  ...props
+}: Omit<TextInputProps, "style"> & {
+  label?: string;
+  hint?: string;
+  error?: string;
+  prefix?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <FieldFrame label={label} hint={hint} error={error} style={style}>
+      {prefix ? (
+        // The border moves to the wrapper so the affix sits inside the field.
+        <View style={[s.input, s.inputSingle, s.affixed]}>
+          <Text style={s.affix}>{prefix}</Text>
+          <TextInput
+            placeholderTextColor={colors.placeholder}
+            {...props}
+            style={s.affixInput}
+          />
+        </View>
+      ) : (
+        <TextInput
+          placeholderTextColor={colors.placeholder}
+          multiline={multiline}
+          {...props}
+          style={[s.input, multiline ? s.inputMultiline : s.inputSingle]}
+        />
+      )}
+    </FieldFrame>
+  );
+}
+
+/**
+ * A value shaped like a field but fixed, for things the account is keyed on.
+ * Sat directly above the editable field it is confused with, the pair carries
+ * the distinction on its own: one is locked, one is not.
+ */
+export function LockedField({
+  label,
+  value,
+  hint,
+}: {
+  label?: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <FieldFrame label={label} hint={hint}>
+      <View style={[s.input, s.inputSingle, s.locked]}>
+        <Text style={[type.handle, { flex: 1 }]} numberOfLines={1}>
+          {value}
+        </Text>
+        <Ionicons name="lock-closed" size={13} color={colors.muted} />
+      </View>
+    </FieldFrame>
+  );
+}
+
+/**
+ * The one place a name and a handle are rendered together, so a person looks
+ * the same on every screen. The display name is the heading; the handle always
+ * follows it in the muted handle style. With no display name set the handle
+ * stands alone in the heading's place but keeps the handle styling, so it never
+ * passes for a name the person hasn't chosen.
+ */
+export function Identity({
+  profile,
+  size = "body",
+  note,
+  style,
+}: {
+  profile?: IdentityProfile | null;
+  size?: "body" | "title";
+  note?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const name = profile?.display_name?.trim();
+  const handle = handleOf(profile);
+  return (
+    <View style={style}>
+      {name || !handle ? (
+        <Text
+          style={size === "title" ? type.title : type.bodyStrong}
+          numberOfLines={1}
+        >
+          {name || "A friend"}
+        </Text>
+      ) : null}
+      {handle ? (
+        <Text
+          style={name || size === "body" ? type.handle : type.handleLarge}
+          numberOfLines={1}
+        >
+          {handle}
+        </Text>
+      ) : null}
+      {note ? (
+        <Text style={[type.small, { marginTop: space.xs }]}>{note}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Password input with a toggle that reveals what has been typed. The border
+ * lives on the wrapper so the eye button sits inside the field.
+ */
+export function PasswordField({
+  label,
+  hint,
+  style,
+  ...props
+}: Omit<TextInputProps, "style"> & {
+  label?: string;
+  hint?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const [shown, setShown] = React.useState(false);
+  return (
+    <FieldFrame label={label} hint={hint} style={style}>
+      <View style={[s.input, s.inputSingle, s.password]}>
+        <TextInput
+          placeholderTextColor={colors.placeholder}
+          autoCapitalize="none"
+          autoCorrect={false}
+          {...props}
+          secureTextEntry={!shown}
+          style={s.passwordInput}
+        />
+        <IconButton
+          icon={shown ? "eye-off-outline" : "eye-outline"}
+          label={shown ? "Hide password" : "Show password"}
+          onPress={() => setShown(!shown)}
+        />
+      </View>
+    </FieldFrame>
+  );
+}
+
+// Measured out of flow; see Collapsible's doc comment for why that matters.
+const COLLAPSIBLE_CONTENT: ViewStyle = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+};
+
+/**
+ * Animates a panel open and shut in the flow of the page, for controls that
+ * belong to the row above them — a picker that floated would tear away from the
+ * value it edits. The rows below get pushed down either way, so the push is
+ * animated rather than instant.
+ *
+ * `height: "auto"` cannot be animated, so the content is measured and the
+ * container animated between 0 and that height. On the first open there is one
+ * frame at height 0 while `onLayout` reports back; overflow is hidden, so that
+ * frame shows nothing instead of flashing the panel full height.
+ *
+ * The content is **absolutely positioned**, which is load-bearing. Measured in
+ * normal flow it would be measured inside a box this component has just clamped
+ * to 0, so the child's height would depend on the number being derived from it
+ * and could come back as 0 — pinning the panel shut for good. Out of flow, its
+ * height is only ever its own content's, so the first `onLayout` is the truth.
+ */
+export function Collapsible({
+  open,
+  children,
+  style,
+}: React.PropsWithChildren<{
+  open: boolean;
+  style?: StyleProp<ViewStyle>;
+}>) {
+  const [mounted, setMounted] = React.useState(open);
+  const [contentHeight, setContentHeight] = React.useState(0);
+  const anim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
+
+  React.useEffect(() => {
+    // Height cannot run on the native driver, so this animates on the JS
+    // thread. Fine at this size: it drives one view, not a list.
+    if (open && contentHeight > 0) {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: false,
+      }).start();
+    } else if (!open && mounted) {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.bezier(0.4, 0, 1, 1),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contentHeight]);
+
+  if (!mounted) return null;
+
+  return (
+    <Animated.View
+      style={[
+        {
+          overflow: "hidden",
+          opacity: anim,
+          // outputRange is read at render, so content that changes height while
+          // open just re-interpolates.
+          height: anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, contentHeight],
+          }),
+        },
+        style,
+      ]}
+    >
+      <View
+        style={COLLAPSIBLE_CONTENT}
+        onLayout={(e) => setContentHeight(e.nativeEvent.layout.height)}
+      >
+        {children}
+      </View>
+    </Animated.View>
+  );
+}
+
+/** Separates two alternatives, like typing a place or using your location. */
+export function OrDivider({ label = "or" }: { label?: string }) {
+  return (
+    <Row gap={space.md} style={{ alignItems: "center" }}>
+      <View style={s.rule} />
+      <Text style={type.small}>{label}</Text>
+      <View style={s.rule} />
+    </Row>
+  );
+}
+
+/** Selectable pill. Bordered when unselected so it reads against `canvas`. */
 export function Chip({
   label,
   selected,
@@ -322,13 +614,14 @@ export function GroupRow({ children, style, ...props }: ViewProps) {
   );
 }
 
+/** `title` takes a node so rows about a person can hand it an Identity. */
 export function SwitchRow({
   title,
   description,
   value,
   onValueChange,
 }: {
-  title: string;
+  title: string | React.ReactNode;
   description?: string;
   value: boolean;
   onValueChange: () => void;
@@ -336,7 +629,11 @@ export function SwitchRow({
   return (
     <GroupRow>
       <View style={{ flex: 1, paddingRight: space.md }}>
-        <Text style={type.body}>{title}</Text>
+        {typeof title === "string" ? (
+          <Text style={type.body}>{title}</Text>
+        ) : (
+          title
+        )}
         {description ? (
           <Text style={[type.small, { marginTop: space.xs }]}>
             {description}
@@ -398,7 +695,7 @@ export function Footnote({ children }: React.PropsWithChildren) {
 const s = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: colors.paper,
+    backgroundColor: colors.canvas,
     paddingHorizontal: space.xl,
   },
   button: {
@@ -445,6 +742,23 @@ const s = StyleSheet.create({
     color: colors.ink,
   },
   inputSingle: { height: 50 },
+  affixed: { flexDirection: "row", alignItems: "center" },
+  affix: { fontSize: 16, color: colors.muted },
+  affixInput: { flex: 1, height: "100%", fontSize: 16, color: colors.ink },
+  locked: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: colors.canvas,
+  },
+  rule: { flex: 1, height: 1, backgroundColor: colors.line },
+  password: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    paddingRight: space.sm,
+  },
+  passwordInput: { flex: 1, height: "100%", fontSize: 16, color: colors.ink },
   inputMultiline: {
     minHeight: 96,
     paddingTop: space.md,

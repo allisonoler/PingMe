@@ -1,0 +1,4 @@
+- run updated schema in supabase
+- test actually using it with your friends
+- figure out how to send notifications and if thats an option given the current setup
+- ui overhaul, add a logo

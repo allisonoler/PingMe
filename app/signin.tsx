@@ -9,11 +9,20 @@ import {
   Field,
   Footnote,
   Page,
+  PasswordField,
   TextAction,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { colors, radius, space, type } from "../lib/theme";
+import {
+  DISPLAY_NAME_HINT,
+  DISPLAY_NAME_MAX,
+  USERNAME_HINT,
+  USERNAME_MIN,
+  isValidUsername,
+  normalizeUsername,
+} from "../lib/identity";
 
 export default function SignIn() {
   const { configured } = useAuth();
@@ -21,7 +30,15 @@ export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // The field can only hold storable characters, so the only rule left to fail
+  // is the length — and saying so while they type beats an alert after submit.
+  const usernameError =
+    username.length > 0 && username.length < USERNAME_MIN
+      ? `At least ${USERNAME_MIN} characters.`
+      : undefined;
 
   async function submit() {
     if (!email.trim() || password.length < 8) {
@@ -31,11 +48,8 @@ export default function SignIn() {
       );
       return;
     }
-    if (mode === "up" && !/^[a-z0-9_]{3,24}$/i.test(username.trim())) {
-      Alert.alert(
-        "Choose a username",
-        "Use 3-24 letters, numbers, or underscores.",
-      );
+    if (mode === "up" && !isValidUsername(username)) {
+      Alert.alert("Choose a username", USERNAME_HINT);
       return;
     }
 
@@ -52,7 +66,12 @@ export default function SignIn() {
             password,
             options: {
               emailRedirectTo,
-              data: { username: username.trim().toLowerCase() },
+              // Both are read by the handle_new_user trigger in
+              // supabase/schema.sql when it creates the profile row.
+              data: {
+                username,
+                display_name: displayName.trim(),
+              },
             },
           });
     setBusy(false);
@@ -91,27 +110,46 @@ export default function SignIn() {
             Add Supabase credentials to .env before signing in.
           </Text>
         )}
-        <Column gap={space.md} style={{ marginTop: space.xxl }}>
+        <Column gap={space.lg} style={{ marginTop: space.xxl }}>
           {mode === "up" && (
-            <Field
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Username"
-              autoCapitalize="none"
-            />
+            <>
+              <Field
+                label="Username"
+                hint={USERNAME_HINT}
+                error={usernameError}
+                prefix="@"
+                value={username}
+                onChangeText={(text) => setUsername(normalizeUsername(text))}
+                placeholder="yourhandle"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+              />
+              <Field
+                label="Display name"
+                hint={DISPLAY_NAME_HINT}
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Full name (optional)"
+                maxLength={DISPLAY_NAME_MAX}
+                autoComplete="name"
+              />
+            </>
           )}
           <Field
+            label="Email"
             value={email}
             onChangeText={setEmail}
-            placeholder="Email"
+            placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
           />
-          <Field
+          <PasswordField
+            label="Password"
             value={password}
             onChangeText={setPassword}
-            placeholder="Password (8+ characters)"
-            secureTextEntry
+            placeholder="8+ characters"
           />
           <Button
             title={mode === "in" ? "Sign in" : "Create account"}

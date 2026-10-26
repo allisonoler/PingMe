@@ -8,6 +8,7 @@ import {
   Field,
   Header,
   IconButton,
+  Identity,
   Page,
   Row,
   Section,
@@ -16,6 +17,7 @@ import {
 } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
 import { space, type } from "../../lib/theme";
+import { handleOf } from "../../lib/identity";
 
 type Profile = { id: string; username: string; display_name: string | null };
 type Request = {
@@ -105,7 +107,7 @@ export default function Friends() {
     else load();
   }
   function manage(f: Profile) {
-    Alert.alert(`@${f.username}`, "Choose an action", [
+    Alert.alert(handleOf(f), "Choose an action", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove friend",
@@ -157,7 +159,7 @@ export default function Friends() {
             {
               text: "Report",
               onPress: () =>
-                Alert.alert("Report @" + f.username, undefined, [
+                Alert.alert(`Report ${handleOf(f)}`, undefined, [
                   { text: "Cancel", style: "cancel" },
                   {
                     text: "Spam",
@@ -192,8 +194,9 @@ export default function Friends() {
           style={{ flex: 1 }}
           value={term}
           onChangeText={setTerm}
-          placeholder="Search username"
+          placeholder="Search by username"
           autoCapitalize="none"
+          autoCorrect={false}
           returnKeyType="search"
           onSubmitEditing={search}
         />
@@ -211,9 +214,11 @@ export default function Friends() {
                 {incoming.map((r) => (
                   <Card key={r.id}>
                     <Row spread>
-                      <Text style={[type.body, { flex: 1 }]}>
-                        @{r.profiles?.username} wants to connect
-                      </Text>
+                      <Identity
+                        profile={r.profiles}
+                        note="Wants to connect"
+                        style={{ flex: 1 }}
+                      />
                       <Row gap={space.sm}>
                         <TextAction
                           label="Decline"
@@ -235,10 +240,7 @@ export default function Friends() {
                 {results.map((p) => (
                   <Card key={p.id}>
                     <Row spread>
-                      <Text style={[type.body, { flex: 1 }]}>
-                        @{p.username}
-                        {p.display_name ? ` · ${p.display_name}` : ""}
-                      </Text>
+                      <Identity profile={p} style={{ flex: 1 }} />
                       <TextAction
                         label="Add"
                         icon="person-add-outline"
@@ -256,19 +258,16 @@ export default function Friends() {
           <Text style={type.small}>
             {friends.length
               ? "No more friends to show."
-              : "Add friends by username to see their pings."}
+              : "Add friends to see their pings."}
           </Text>
         }
         renderItem={({ item }) => (
           <Card>
             <Row spread>
-              <Text style={[type.body, { flex: 1 }]}>
-                @{item.username}
-                {item.display_name ? ` · ${item.display_name}` : ""}
-              </Text>
+              <Identity profile={item} style={{ flex: 1 }} />
               <IconButton
                 icon="ellipsis-horizontal"
-                label={`Manage @${item.username}`}
+                label={`Manage ${handleOf(item)}`}
                 onPress={() => manage(item)}
               />
             </Row>

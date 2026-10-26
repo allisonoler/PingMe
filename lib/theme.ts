@@ -3,13 +3,17 @@ import { TextStyle } from "react-native";
 export const colors = {
   ink: "#17221D",
   // #728078 scored 4.14:1 on white, under the 4.5:1 AA floor for the 12-13px
-  // text it is used for. This darkened tone clears AA on both white and paper.
+  // text it is used for. This darkened tone clears AA on both white and canvas.
   muted: "#5B6761",
   green: "#236B4E",
   greenPressed: "#1B5339",
   mint: "#E5F3EA",
   mintPressed: "#D6E9DD",
-  paper: "#F7F8F5",
+  // The page canvas. A dead-neutral grey, matched to the tab navigator's own
+  // default scene colour, so the two can never read as a seam where one ends
+  // and the other begins. Kept a touch darker than the white cards and the
+  // mint chips sit on it, which is what gives them their edge.
+  canvas: "#F2F2F2",
   white: "#FFFFFF",
   line: "#E3E9E4",
   orange: "#F4A261",
@@ -57,6 +61,30 @@ export const type = {
     color: colors.ink,
   },
   small: { fontSize: 13, lineHeight: 18, color: colors.muted },
+  // A handle is an address, not a name, so it never borrows the ink colour or
+  // the weight of the display name it sits under. `handleLarge` is for the one
+  // case where a handle stands alone in a name's slot: same size, still muted,
+  // still unmistakably the other thing.
+  handle: {
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
+    color: colors.muted,
+  },
+  handleLarge: {
+    fontSize: 19,
+    lineHeight: 24,
+    letterSpacing: 0.2,
+    color: colors.muted,
+  },
+  // Field labels are sentence case; the all-caps `label` stays with Sections so
+  // the two levels of heading don't collapse into one.
+  fieldLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+    color: colors.ink,
+  },
   // All-caps needs positive tracking or it reads as cramped.
   label: {
     fontSize: 12,
@@ -67,13 +95,22 @@ export const type = {
   button: { fontSize: 16, fontWeight: "700" },
 } satisfies Record<string, TextStyle>;
 
-export const activities = [
-  "Coffee",
-  "Study",
-  "Gym",
-  "Food",
-  "Walk",
-  "Sports",
-  "Party",
-  "Other",
+// Grouped by category, alphabetical inside each group, with the catch-all last.
+// Fitness sits next to sports so the active options read as one run of chips.
+// Kept in step with the `activity` check constraints in supabase/schema.sql.
+const HANGOUTS = ["FHE", "Food", "Party", "Study"];
+const FITNESS = ["Gym", "Running", "Walk"];
+const SPORTS = [
+  "Basketball",
+  "Football",
+  "Golf",
+  "Pickleball",
+  "Soccer",
+  "Tennis",
+  "Volleyball",
 ];
+
+export const activities = [...HANGOUTS, ...FITNESS, ...SPORTS, "Other"];
+
+/** Pre-selected on the create screen, so reordering the list above can't move it. */
+export const defaultActivity = "Food";

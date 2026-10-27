@@ -18,6 +18,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import { space, type } from "../../lib/theme";
 import { handleOf } from "../../lib/identity";
+import { demoFriends, useDemo } from "../../lib/demo";
 
 type Profile = { id: string; username: string; display_name: string | null };
 type Request = {
@@ -27,11 +28,13 @@ type Request = {
   profiles?: Profile | null;
 };
 export default function Friends() {
+  const { demoMode } = useDemo();
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [incoming, setIncoming] = useState<Request[]>([]);
   const load = useCallback(async () => {
+    if (demoMode) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -59,7 +62,7 @@ export default function Friends() {
       .eq("recipient_id", user.id)
       .eq("status", "pending");
     setIncoming((req || []) as any);
-  }, []);
+  }, [demoMode]);
   useFocusEffect(
     useCallback(() => {
       load();
@@ -186,6 +189,28 @@ export default function Friends() {
     if (error) Alert.alert("Could not send report", error.message);
     else Alert.alert("Report sent", "Thanks for helping keep PingMe safe.");
   }
+  if (demoMode)
+    return (
+      <Page style={{ flex: 1 }}>
+        <Header
+          title="Your people"
+          subtitle="Sample friends for your campus demo."
+        />
+        <FlatList
+          data={demoFriends}
+          keyExtractor={(friend) => friend.id}
+          contentContainerStyle={[listContent, { gap: space.md }]}
+          renderItem={({ item }) => (
+            <Card>
+              <Row spread>
+                <Identity profile={item} style={{ flex: 1 }} />
+                <Text style={type.small}>Demo friend</Text>
+              </Row>
+            </Card>
+          )}
+        />
+      </Page>
+    );
   return (
     <Page>
       <Header title="Friends" subtitle="Find your people by username." />

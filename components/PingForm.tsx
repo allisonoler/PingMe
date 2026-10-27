@@ -25,6 +25,7 @@ import {
   roundUpToStep,
 } from "./TimePicker";
 import { activities, defaultActivity, space } from "../lib/theme";
+import { presets } from "../lib/pings";
 
 const DEFAULT_SPAN = 60;
 // The place name the coordinates come with, so turning the switch back off
@@ -248,6 +249,29 @@ export function PingForm({
       <Page>
         <Header title={title} subtitle={subtitle} action={headerAction} />
         <Column gap={space.xxl}>
+          {!ping ? (
+            <Section label="MAKE A QUICK PLAN">
+              <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
+                {presets.map((preset) => (
+                  <Button
+                    key={preset.activity}
+                    title={preset.activity}
+                    icon={preset.icon}
+                    variant="secondary"
+                    compact
+                    onPress={() =>
+                      patch({
+                        activity: preset.activity,
+                        description: preset.description,
+                        place: preset.place,
+                        coords: null,
+                      })
+                    }
+                  />
+                ))}
+              </Row>
+            </Section>
+          ) : null}
           <Section>
             <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
               {activities.map((a) => (

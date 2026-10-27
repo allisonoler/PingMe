@@ -10,7 +10,7 @@ export type MapPing = {
   location_name: string | null;
   latitude: number | null;
   longitude: number | null;
-  profiles?: { display_name: string | null; username: string } | null;
+  profiles?: { display_name?: string | null; username: string } | null;
 };
 export function PingMap({ pings }: { pings: MapPing[] }) {
   const located = pings.filter(

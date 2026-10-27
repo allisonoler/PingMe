@@ -5,6 +5,7 @@ import { PingForm, type PingFields } from "../../components/PingForm";
 import { Header, Page, TextAction } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
 import { colors, space } from "../../lib/theme";
+import { useDemo } from "../../lib/demo";
 
 const COLUMNS =
   "creator_id,activity,description,location_name,latitude,longitude,starts_at,expires_at";
@@ -17,10 +18,23 @@ function leave() {
 
 export default function EditPing() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { demoMode, demoPings, setDemoPings } = useDemo();
   const [ping, setPing] = useState<PingFields | null>(null);
 
   useEffect(() => {
     let live = true;
+    if (demoMode) {
+      const sample = demoPings.find((item) => item.id === id && item.is_own);
+      if (!sample) {
+        leave();
+        return;
+      }
+      setPing({
+        ...sample,
+        starts_at: sample.starts_at || new Date().toISOString(),
+      });
+      return;
+    }
     (async () => {
       const {
         data: { user },
@@ -47,9 +61,18 @@ export default function EditPing() {
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, demoMode, demoPings]);
 
   async function save(fields: PingFields) {
+    if (demoMode) {
+      setDemoPings((items) =>
+        items.map((item) =>
+          item.id === id && item.is_own ? { ...item, ...fields } : item,
+        ),
+      );
+      leave();
+      return true;
+    }
     const { error } = await supabase.from("pings").update(fields).eq("id", id);
     if (error) {
       Alert.alert("Could not save changes", error.message);
@@ -73,11 +96,19 @@ export default function EditPing() {
 
   return (
     <PingForm
-      title="Edit ping"
-      subtitle="Change the details and your friends will see the update."
+      title={demoMode ? "Edit demo ping" : "Edit ping"}
+      subtitle={
+        demoMode
+          ? "Try a different plan for your walkthrough."
+          : "Change the details and your friends will see the update."
+      }
       headerAction={<TextAction label="Cancel" tone="muted" onPress={leave} />}
       submitTitle="Save changes"
-      footnote="Everyone who said they’re in stays in."
+      footnote={
+        demoMode
+          ? "Demo only. Changes stay on this device."
+          : "Everyone who said they’re in stays in."
+      }
       ping={ping}
       onSubmit={save}
     />

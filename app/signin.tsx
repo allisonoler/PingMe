@@ -13,6 +13,7 @@ import {
   TextAction,
 } from "../components/ui";
 import { useAuth } from "../lib/auth";
+import { useDemo } from "../lib/demo";
 import { supabase } from "../lib/supabase";
 import { colors, radius, space, type } from "../lib/theme";
 import {
@@ -26,6 +27,7 @@ import {
 
 export default function SignIn() {
   const { configured } = useAuth();
+  const { setDemoMode } = useDemo();
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -158,6 +160,14 @@ export default function SignIn() {
             disabled={!configured}
           />
           <View style={{ alignItems: "center" }}>
+            <Button
+              title="Explore the demo"
+              variant="secondary"
+              onPress={() => {
+                setDemoMode(true);
+                router.replace("/home");
+              }}
+            />
             <TextAction
               label={
                 mode === "in"

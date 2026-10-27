@@ -2,9 +2,16 @@ import { Alert } from "react-native";
 import { router } from "expo-router";
 import { PingForm, type PingFields } from "../../components/PingForm";
 import { supabase } from "../../lib/supabase";
+import { useDemo } from "../../lib/demo";
 
 export default function Create() {
+  const { demoMode, createDemoPing } = useDemo();
   async function create(fields: PingFields) {
+    if (demoMode) {
+      createDemoPing(fields);
+      router.replace("/home");
+      return true;
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -29,8 +36,12 @@ export default function Create() {
     <PingForm
       title="New ping"
       subtitle="Let friends know what you’re up for."
-      submitTitle="Share ping with friends"
-      footnote="Only friends can see this ping."
+      submitTitle={demoMode ? "Add demo ping" : "Share ping with friends"}
+      footnote={
+        demoMode
+          ? "Demo only. This ping stays on this device."
+          : "Only friends can see this ping."
+      }
       onSubmit={create}
     />
   );

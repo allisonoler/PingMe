@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
-import { Alert, ScrollView, Text } from "react-native";
+import { Alert, Platform, ScrollView, Text } from "react-native";
 import { useFocusEffect, router } from "expo-router";
+import { requireOptionalNativeModule } from "expo";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 import {
@@ -21,6 +22,8 @@ import {
 import { supabase } from "../../lib/supabase";
 import { activities, space, type } from "../../lib/theme";
 import { DISPLAY_NAME_MAX, type IdentityProfile } from "../../lib/identity";
+import { scheduleDemoPing } from "../../lib/localNotifications";
+import { useDemo } from "../../lib/demo";
 
 type Pref = {
   friend_id: string | null;
@@ -42,16 +45,43 @@ async function resolvePushToken(
       problem:
         "Push notifications require a physical device and an EAS development or production build.",
     };
-  if (Constants.executionEnvironment === "storeClient")
+  if (
+    Constants.executionEnvironment === "storeClient" ||
+    Constants.appOwnership === "expo" ||
+    requireOptionalNativeModule("ExpoGo")
+  )
     return {
       problem:
-        "Expo Go on Android does not support remote push notifications. Create an EAS development build to enable push.",
+        "Remote push needs a PingMe development or production build. For the local demo, tap Send demo ping below.",
+    };
+  // The JS package can be newer than the installed native app. Check before
+  // importing any notification code.
+  if (
+    Platform.OS === "web" ||
+    !requireOptionalNativeModule("ExpoPushTokenManager") ||
+    !requireOptionalNativeModule("ExpoNotificationPermissionsModule") ||
+    !requireOptionalNativeModule("NotificationsServerRegistrationModule")
+  )
+    return {
+      problem:
+        "This build does not include the required notification modules. Rebuild and reinstall PingMe to enable push notifications.",
     };
   try {
-    const Notifications = await import("expo-notifications");
-    let status = (await Notifications.getPermissionsAsync()).status;
+    // Avoid the package entry point: it eagerly loads unrelated native modules
+    // and can leave partially initialized exports after a failed import.
+    const permissions =
+      await import("expo-notifications/build/NotificationPermissions");
+    if (
+      typeof permissions.getPermissionsAsync !== "function" ||
+      typeof permissions.requestPermissionsAsync !== "function"
+    )
+      return {
+        problem:
+          "Notification support did not load. Fully close and reopen PingMe, then try Send demo ping for the local demo.",
+      };
+    let status = (await permissions.getPermissionsAsync()).status;
     if (status !== "granted" && prompt)
-      status = (await Notifications.requestPermissionsAsync()).status;
+      status = (await permissions.requestPermissionsAsync()).status;
     if (status !== "granted")
       return {
         problem: "Enable notifications for PingMe in your device settings.",
@@ -64,9 +94,9 @@ async function resolvePushToken(
         problem:
           "Set your EAS project ID in app.json before registering this device.",
       };
-    return {
-      token: (await Notifications.getExpoPushTokenAsync({ projectId })).data,
-    };
+    const { getExpoPushTokenAsync } =
+      await import("expo-notifications/build/getExpoPushTokenAsync");
+    return { token: (await getExpoPushTokenAsync({ projectId })).data };
   } catch (error) {
     return {
       problem:
@@ -77,6 +107,7 @@ async function resolvePushToken(
   }
 }
 export default function Settings() {
+  const { demoMode, setDemoMode, resetDemo } = useDemo();
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [prefs, setPrefs] = useState<Pref[]>([]);
@@ -85,7 +116,27 @@ export default function Settings() {
   );
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  async function sendDemoPing() {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    try {
+      await scheduleDemoPing();
+      Alert.alert(
+        "Demo ping scheduled",
+        "Your sample ping will arrive in about 10 seconds. Go to your home screen now to see the notification.",
+      );
+    } catch (error) {
+      Alert.alert(
+        "Could not schedule demo ping",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setDemoBusy(false);
+    }
+  }
   const load = useCallback(async () => {
+    if (demoMode) return;
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -128,7 +179,7 @@ export default function Settings() {
         .eq("token", setup.token);
       setPushOn(!!count);
     } else setPushOn(false);
-  }, []);
+  }, [demoMode]);
   useFocusEffect(
     useCallback(() => {
       load();
@@ -202,7 +253,7 @@ export default function Settings() {
       }
       const setup = await resolvePushToken(true);
       if ("problem" in setup) {
-        Alert.alert("Notifications are off", setup.problem);
+        Alert.alert("Remote push unavailable", setup.problem);
         return;
       }
       const { error } = await supabase.from("push_devices").upsert(
@@ -241,6 +292,51 @@ export default function Settings() {
       ],
     );
   }
+  if (demoMode)
+    return (
+      <ScrollView contentContainerStyle={listContent}>
+        <Page>
+          <Header
+            title="Demo settings"
+            subtitle="Everything you need for the walkthrough."
+          />
+          <Column gap={space.xxl}>
+            <Card>
+              <Column>
+                <Text style={type.body}>
+                  Sample friends and pings stay on this device. Join a game,
+                  create a plan, or reset for the next judge.
+                </Text>
+                <Button
+                  title="Reset demo"
+                  variant="secondary"
+                  onPress={() => {
+                    resetDemo();
+                    router.replace("/home");
+                  }}
+                />
+              </Column>
+            </Card>
+            <Card>
+              <Column>
+                <Text style={type.title}>Try the notification</Text>
+                <Text style={type.small}>
+                  A pickleball invite on this phone in about 10 seconds.
+                </Text>
+                <Button
+                  title="Send demo ping"
+                  onPress={sendDemoPing}
+                  loading={demoBusy}
+                />
+              </Column>
+            </Card>
+            <Footnote>
+              Use Exit in the demo banner to return to your account.
+            </Footnote>
+          </Column>
+        </Page>
+      </ScrollView>
+    );
   return (
     <ScrollView
       contentContainerStyle={listContent}
@@ -250,6 +346,21 @@ export default function Settings() {
       <Page>
         <Header title="Settings" subtitle="Tune who and what you hear about." />
         <Column gap={space.xxl}>
+          <Section label="HACKATHON DEMO">
+            <Group>
+              <SwitchRow
+                title="Demo mode"
+                value={demoMode}
+                onValueChange={() => {
+                  setDemoMode(true);
+                  router.replace("/home");
+                }}
+              />
+            </Group>
+            <Footnote>
+              Explore sample friends and pings without changing your account.
+            </Footnote>
+          </Section>
           <Section>
             <Card>
               {/* The locked handle sits directly above the editable name: the
@@ -279,14 +390,43 @@ export default function Settings() {
           <Section>
             <Group>
               <SwitchRow
-                title="Push notifications"
+                title="Remote push notifications"
                 value={pushOn}
                 onValueChange={togglePush}
               />
             </Group>
+            <Footnote>
+              Remote push requires a PingMe build. To try a notification in Expo
+              Go, use Send demo ping below.
+            </Footnote>
+          </Section>
+
+          <Section label="TRY A DEMO PING">
+            <Card>
+              <Column gap={space.md}>
+                <Text style={type.small}>
+                  Preview a sample ping on this phone. It arrives in about 10
+                  seconds, even if you leave the app.
+                </Text>
+                <Button
+                  title="Send demo ping"
+                  variant="secondary"
+                  onPress={sendDemoPing}
+                  loading={demoBusy}
+                />
+                <Footnote>
+                  This is a local demo notification. It does not send a ping to
+                  your friends.
+                </Footnote>
+              </Column>
+            </Card>
           </Section>
 
           <Section label="PING NOTIFICATIONS">
+            <Footnote>
+              New friend pings show an alert while PingMe is open and online.
+              These preferences apply to both live alerts and remote push.
+            </Footnote>
             <Group>
               <SwitchRow
                 title="All friend pings"

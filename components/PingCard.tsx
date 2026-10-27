@@ -1,8 +1,17 @@
 import { useEffect, useRef } from "react";
-import { AccessibilityInfo, Animated, Text, View } from "react-native";
+import {
+  AccessibilityInfo,
+  Animated,
+  Pressable,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, Card, Identity, Row } from "./ui";
-import { colors, radius, space, type } from "../lib/theme";
+import { Button, Row } from "./ui";
+import { activityTone, colors, hit, space } from "../lib/theme";
+import { Avatar } from "./Avatar";
 import { nameOf } from "../lib/identity";
 import { activityIcon, timeLeft, type Ping } from "../lib/pings";
 
@@ -13,6 +22,7 @@ export function PingCard({
   onRespond,
   onEdit,
   onCancel,
+  onShowAttendees,
 }: {
   ping: Ping;
   now: number;
@@ -20,6 +30,7 @@ export function PingCard({
   onRespond: () => void;
   onEdit: () => void;
   onCancel: () => void;
+  onShowAttendees: () => void;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const reducedMotion = useRef(false);
@@ -45,12 +56,12 @@ export function PingCard({
       Animated.timing(scale, {
         toValue: 1.06,
         duration: 130,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.spring(scale, {
         toValue: 1,
         friction: 5,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
     ]);
     animation.start();
@@ -61,112 +72,80 @@ export function PingCard({
   }, [p.accepted, scale]);
   const people = p.ping_acceptances?.slice(0, 3) || [];
   const count = p.acceptance_count || 0;
+  const tone = activityTone(p.activity);
   return (
-    <Card>
-      <Row spread style={{ flexWrap: "wrap", rowGap: space.sm }}>
-        <Row
-          style={{
-            backgroundColor: colors.mint,
-            borderRadius: radius.pill,
-            paddingHorizontal: 12,
-            paddingVertical: 7,
-          }}
-        >
-          <Ionicons
-            name={activityIcon(p.activity)}
-            size={17}
-            color={colors.green}
-          />
-          <Text
-            style={[type.small, { color: colors.green, fontWeight: "700" }]}
-          >
-            {p.activity}
+    <View style={s.card}>
+      <View style={s.content}>
+        <Row spread gap={space.sm} style={{ alignItems: "flex-start" }}>
+          <Row gap={space.md} style={{ flex: 1 }}>
+            <View style={[s.activity, { backgroundColor: tone.background }]}>
+              <Ionicons
+                name={activityIcon(p.activity)}
+                size={22}
+                color={tone.ink}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.title}>{p.activity}</Text>
+              <Text style={s.host} numberOfLines={1}>
+                {nameOf(p.profiles)}
+                {p.is_own ? " · Your ping" : ""}
+              </Text>
+            </View>
+          </Row>
+          <View style={s.expiry}>
+            <Text style={s.expiryText}>{timeLeft(p.expires_at, now)}</Text>
+          </View>
+        </Row>
+        {p.description ? (
+          <Text style={s.description}>{p.description}</Text>
+        ) : null}
+        <Row gap={5}>
+          <Ionicons name="location-outline" size={13} color={colors.muted} />
+          <Text style={s.location}>
+            {p.location_name || "Ask your friend for the spot"}
           </Text>
         </Row>
-        <Row gap={4}>
-          <Ionicons name="time-outline" size={14} color={colors.muted} />
-          <Text style={type.small}>{timeLeft(p.expires_at, now)}</Text>
-        </Row>
-      </Row>
-      <Identity
-        profile={p.profiles}
-        size="title"
-        style={{ marginTop: space.lg }}
-      />
-      {p.description ? (
-        <Text style={[type.body, { marginTop: space.sm }]}>
-          {p.description}
-        </Text>
-      ) : null}
-      <Row gap={space.xs} style={{ marginTop: space.md }}>
-        <Ionicons name="location-outline" size={15} color={colors.muted} />
-        <Text style={[type.small, { flex: 1 }]}>
-          {p.location_name || "Ask your friend for the spot"}
-        </Text>
-      </Row>
-      {p.is_own && p.ping_acceptances?.length ? (
-        <Text
-          style={[type.small, { color: colors.green, marginTop: space.sm }]}
+      </View>
+      <Row spread gap={space.sm} style={s.footer}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`See who's coming, ${count} going`}
+          onPress={onShowAttendees}
+          style={({ pressed }) => ({
+            minHeight: hit,
+            justifyContent: "center",
+            opacity: pressed ? 0.6 : 1,
+          })}
         >
-          Going:{" "}
-          {p.ping_acceptances
-            .map((person) => nameOf(person.profiles))
-            .join(", ")}
-        </Text>
-      ) : null}
-      <View
-        style={{
-          height: 1,
-          backgroundColor: colors.line,
-          marginVertical: space.lg,
-        }}
-      />
-      <Row spread style={{ flexWrap: "wrap", rowGap: space.md }}>
-        <Row gap={space.sm} accessibilityLabel={`${count} going`}>
-          {people.length ? (
-            <Row gap={0}>
-              {people.map((person, index) => (
-                <View
-                  key={person.user_id}
-                  style={{
-                    width: 29,
-                    height: 29,
-                    borderRadius: 15,
-                    marginLeft: index ? -7 : 0,
-                    borderWidth: 2,
-                    borderColor: colors.white,
-                    backgroundColor: index % 2 ? "#E8EDF7" : colors.mint,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text
+          <Row gap={space.sm}>
+            {people.length ? (
+              <Row gap={0}>
+                {people.map((person, index) => (
+                  <Avatar
+                    key={person.user_id}
+                    profile={person.profiles}
+                    index={index}
+                    size={26}
                     style={{
-                      fontSize: 10,
-                      fontWeight: "800",
-                      color: colors.ink,
+                      marginLeft: index ? -5 : 0,
+                      borderWidth: 2,
+                      borderColor: colors.surfaceAlt,
                     }}
-                  >
-                    {nameOf(person.profiles)
-                      .replace(/^@/, "")
-                      .split(/\s+/)
-                      .slice(0, 2)
-                      .map((word) => word[0])
-                      .join("")
-                      .toUpperCase()}
-                  </Text>
-                </View>
-              ))}
-            </Row>
-          ) : (
-            <Ionicons name="people-outline" size={18} color={colors.muted} />
-          )}
-          <Text style={[type.small, { fontWeight: "600" }]}>
-            {count ? `${count} going` : "Be the first"}
-          </Text>
-        </Row>
+                  />
+                ))}
+              </Row>
+            ) : (
+              <Ionicons name="people-outline" size={18} color={colors.green} />
+            )}
+            <Text style={s.attendees}>
+              {count ? `${count} going` : "Be the first"}
+            </Text>
+            <Ionicons name="chevron-forward" size={12} color={colors.green} />
+          </Row>
+        </Pressable>
         {p.is_own ? (
-          <Row>
+          <Row gap={space.xs}>
             <Button
               title="Edit"
               variant="secondary"
@@ -185,7 +164,7 @@ export function PingCard({
         ) : (
           <Animated.View style={{ transform: [{ scale }] }}>
             <Button
-              title={p.accepted ? "You're going" : "I'm in"}
+              title={p.accepted ? "Going" : "I'm in"}
               icon={p.accepted ? "checkmark-circle" : "add"}
               variant={p.accepted ? "secondary" : "primary"}
               compact
@@ -195,6 +174,61 @@ export function PingCard({
           </Animated.View>
         )}
       </Row>
-    </Card>
+    </View>
   );
 }
+
+const s = StyleSheet.create({
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  content: { padding: space.lg, gap: space.md },
+  activity: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+    color: colors.ink,
+  },
+  host: { fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 1 },
+  expiry: {
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  expiryText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: "600",
+    color: colors.muted,
+  },
+  description: { fontSize: 14, lineHeight: 20, color: colors.ink },
+  location: { fontSize: 12, lineHeight: 17, color: colors.muted, flex: 1 },
+  footer: {
+    backgroundColor: colors.surfaceAlt,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    flexWrap: "wrap",
+    rowGap: space.xs,
+  },
+  attendees: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+    color: colors.green,
+  },
+});

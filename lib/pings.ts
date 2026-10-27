@@ -62,10 +62,27 @@ export function timeLeft(expiresAt: string, now: number) {
   return `Ends in ${hours}h${rest ? ` ${rest}m` : ""}`;
 }
 
-export function withResponse(ping: Ping): Ping {
+export function withResponse(
+  ping: Ping,
+  responder?: NonNullable<Ping["ping_acceptances"]>[number],
+): Ping {
   return {
     ...ping,
     accepted: !ping.accepted,
+    ...(responder
+      ? {
+          ping_acceptances: ping.accepted
+            ? (ping.ping_acceptances || []).filter(
+                (person) => person.user_id !== responder.user_id,
+              )
+            : [
+                ...(ping.ping_acceptances || []).filter(
+                  (person) => person.user_id !== responder.user_id,
+                ),
+                responder,
+              ],
+        }
+      : {}),
     acceptance_count: Math.max(
       0,
       (ping.acceptance_count || 0) + (ping.accepted ? -1 : 1),

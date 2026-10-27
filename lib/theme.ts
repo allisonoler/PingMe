@@ -1,21 +1,21 @@
 import { TextStyle } from "react-native";
 
 export const colors = {
-  ink: "#17221D",
+  ink: "#182E25",
   // #728078 scored 4.14:1 on white, under the 4.5:1 AA floor for the 12-13px
   // text it is used for. This darkened tone clears AA on both white and canvas.
-  muted: "#5B6761",
-  green: "#236B4E",
-  greenPressed: "#1B5339",
-  mint: "#E5F3EA",
-  mintPressed: "#D6E9DD",
-  // The page canvas. A dead-neutral grey, matched to the tab navigator's own
-  // default scene colour, so the two can never read as a seam where one ends
-  // and the other begins. Kept a touch darker than the white cards and the
-  // mint chips sit on it, which is what gives them their edge.
-  canvas: "#F2F2F2",
+  muted: "#59665B",
+  green: "#23583E",
+  greenPressed: "#19412E",
+  mint: "#E1EACD",
+  mintPressed: "#D2DEB8",
+  canvas: "#EAEDE4",
+  surface: "#F8F9F3",
+  surfaceAlt: "#EFF2E8",
+  forest: "#193D2C",
+  lime: "#D9EC9B",
   white: "#FFFFFF",
-  line: "#E3E9E4",
+  line: "#D8DFD1",
   orange: "#F4A261",
   red: "#C94C4C",
   redSoft: "#FBEEEE",
@@ -39,16 +39,28 @@ export const radius = { sm: 10, md: 14, lg: 20, pill: 999 };
 // Minimum comfortable touch target.
 export const hit = 44;
 
+export const avatarTones = [
+  { background: "#DFE8C7", ink: "#34512C" },
+  { background: "#E8DECD", ink: "#665137" },
+  { background: "#E4DEED", ink: "#5A4774" },
+];
+
+export function activityTone(activity: string) {
+  if (activity === "Study") return avatarTones[2];
+  if (activity === "Food" || activity === "FHE") return avatarTones[1];
+  return avatarTones[0];
+}
+
 export const type = {
   display: {
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: -0.6,
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.8,
     color: colors.ink,
   },
   title: {
-    fontSize: 19,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
     letterSpacing: -0.2,
     color: colors.ink,
   },

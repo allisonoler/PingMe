@@ -335,6 +335,7 @@ drop function if exists public.is_blocked(uuid, uuid);
 drop function if exists public.can_view_profile(uuid);
 drop function if exists public.search_profiles(text, integer, integer);
 drop function if exists public.get_ping_counts(uuid[]);
+drop function if exists public.get_ping_attendees(uuid);
 drop function if exists public.delete_my_account();
 
 -- Gives every new auth user a profile, with a username derived from their
@@ -404,6 +405,21 @@ language sql stable security definer set search_path = '' as $$
   where a.ping_id=any(ping_ids) and p.expires_at>now()
     and (p.creator_id=auth.uid() or (public.is_friend(auth.uid(),p.creator_id) and not public.is_blocked(auth.uid(),p.creator_id)))
   group by a.ping_id
+$$;
+
+-- Attendee identities are returned only for an active ping the caller can see.
+-- This avoids expanding general profile or acceptance-table access.
+create function public.get_ping_attendees(target_ping_id uuid)
+returns table(user_id uuid,username text,display_name text)
+language sql stable security definer set search_path = '' as $$
+  select a.user_id,profile.username,profile.display_name
+  from public.ping_acceptances a
+  join public.pings p on p.id=a.ping_id
+  join public.profiles profile on profile.id=a.user_id
+  where auth.uid() is not null and p.id=target_ping_id and p.expires_at>now()
+    and (p.creator_id=auth.uid() or (public.is_friend(auth.uid(),p.creator_id) and not public.is_blocked(auth.uid(),p.creator_id)))
+    and not public.is_blocked(auth.uid(),a.user_id)
+  order by lower(coalesce(nullif(trim(profile.display_name),''),profile.username)),a.user_id
 $$;
 
 -- Account deletion from the client. The cascade from auth.users clears the
@@ -476,14 +492,16 @@ grant update(status) on public.friendships to authenticated;
 revoke all on function
   public.is_friend(uuid, uuid), public.is_blocked(uuid, uuid),
   public.can_view_profile(uuid), public.search_profiles(text, integer, integer),
-  public.get_ping_counts(uuid[]), public.delete_my_account()
+  public.get_ping_counts(uuid[]), public.get_ping_attendees(uuid), public.delete_my_account()
   from public;
 
 grant execute on function
   public.is_friend(uuid, uuid), public.is_blocked(uuid, uuid),
   public.can_view_profile(uuid), public.search_profiles(text, integer, integer),
-  public.get_ping_counts(uuid[]), public.delete_my_account()
+  public.get_ping_counts(uuid[]), public.get_ping_attendees(uuid), public.delete_my_account()
   to authenticated;
+
+revoke all on function public.get_ping_attendees(uuid) from anon;
 
 
 -- ---------------------------------------------------------------------------

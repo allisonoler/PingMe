@@ -23,6 +23,8 @@ The project pins Expo SDK 58 to match your Expo Go release; `expo install --fix`
 
 Run it again whenever the file changes. It builds an empty database from scratch and, on a database that is already set up, applies only what has drifted without touching existing rows, so there is nothing to apply in order and no migration state to repair. Edit the file to describe the database you want; its header explains which objects it reconciles automatically and the one case (changing an existing column's type or default, or an existing key) that needs a line in its DRIFT section.
 
+To enable the clickable attendee list on an existing database, apply `supabase/enable-attendee-list.sql` in the SQL editor, or reapply the full schema. The **going** count opens a guest list with names and usernames. Hosts can still load their own guest lists before this update is applied.
+
 Deploy push delivery:
 
 ```sh
@@ -37,4 +39,4 @@ Create/link an EAS project with `eas init`, set its project ID under `expo.extra
 
 ## Privacy and MVP boundaries
 
-Only accepted friends can read an active ping or accept it. The ping creator can see the names of responders; the count RPC exposes aggregate counts to eligible friends. Location is optional, foreground-only, and attached to an individual ping. Location coordinates are never requested by the app unless the user chooses “Use my current location.” The app has list fallback when the map is unavailable. Friend-of-friend invites, groups, scheduling, and avatar customization remain outside this MVP.
+Only accepted friends can read an active ping or accept it. People who can view an active ping can open its attendee list; blocked attendee identities remain hidden. The count RPC exposes aggregate counts to eligible friends. Location is optional, foreground-only, and attached to an individual ping. Location coordinates are never requested by the app unless the user chooses “Use my current location.” The app has list fallback when the map is unavailable. Friend-of-friend invites, groups, scheduling, and avatar customization remain outside this MVP.

@@ -31,7 +31,7 @@ export function Page({ children, style, ...props }: ViewProps) {
   const insets = useSafeAreaInsets();
   return (
     <View
-      style={[s.page, { paddingTop: insets.top + space.lg }, style]}
+      style={[s.page, { paddingTop: insets.top + space.md }, style]}
       {...props}
     >
       {children}
@@ -119,7 +119,7 @@ export function Header({
   action?: React.ReactNode;
 }) {
   return (
-    <View style={{ marginBottom: space.xxl }}>
+    <View style={{ marginBottom: space.xl }}>
       <Row spread>
         <Text style={[type.display, { flex: 1 }]}>{title}</Text>
         {action}
@@ -699,7 +699,7 @@ const s = StyleSheet.create({
     paddingHorizontal: space.xl,
   },
   button: {
-    height: 50,
+    height: 46,
     borderRadius: radius.md,
     backgroundColor: colors.green,
     flexDirection: "row",
@@ -710,12 +710,12 @@ const s = StyleSheet.create({
   },
   buttonSecondary: { backgroundColor: colors.mint },
   buttonDanger: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: "#EFD7D7",
   },
   buttonCompact: {
-    height: 38,
+    height: hit,
     paddingHorizontal: space.lg,
     borderRadius: radius.sm,
   },
@@ -733,7 +733,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   input: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.md,
@@ -772,7 +772,7 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -787,14 +787,14 @@ const s = StyleSheet.create({
   },
   badgeText: { fontSize: 12, fontWeight: "700", color: colors.green },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: space.lg,
   },
   group: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,

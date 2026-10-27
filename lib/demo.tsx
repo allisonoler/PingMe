@@ -7,6 +7,8 @@ export const demoFriends = [
   { id: "demo-josh", username: "josh_m", display_name: "Josh Miller" },
   { id: "demo-sophie", username: "sophie_k", display_name: "Sophie Kim" },
   { id: "demo-caleb", username: "caleb_w", display_name: "Caleb Wilson" },
+  { id: "demo-maddie", username: "maddie_t", display_name: "Maddie Taylor" },
+  { id: "demo-ethan", username: "ethan_b", display_name: "Ethan Brooks" },
 ];
 
 export function makeDemoPings(now = Date.now()): Ping[] {
@@ -44,9 +46,9 @@ export function makeDemoPings(now = Date.now()): Ping[] {
     accepted: false,
     is_own: false,
     acceptance_count: p.count,
-    ping_acceptances: Array.from({ length: Math.min(p.count, 4) }, (_, n) => ({
-      user_id: demoFriends[n].id,
-      profiles: demoFriends[n],
+    ping_acceptances: Array.from({ length: p.count }, (_, n) => ({
+      user_id: demoFriends[(index + n + 1) % demoFriends.length].id,
+      profiles: demoFriends[(index + n + 1) % demoFriends.length],
     })),
   }));
 }

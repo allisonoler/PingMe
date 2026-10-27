@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, space } from "../../lib/theme";
 import { useDemo } from "../../lib/demo";
@@ -32,10 +32,10 @@ export default function TabLayout() {
       {demoMode ? (
         <View
           style={{
-            backgroundColor: colors.mint,
+            backgroundColor: colors.canvas,
             paddingHorizontal: space.xl,
             paddingTop: insets.top + space.sm,
-            paddingBottom: space.sm,
+            paddingBottom: space.xs,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
@@ -45,12 +45,13 @@ export default function TabLayout() {
           <Text
             style={{
               color: colors.green,
-              fontSize: 12,
-              fontWeight: "800",
+              fontSize: 10,
+              fontWeight: "600",
+              letterSpacing: 0.5,
               flex: 1,
             }}
           >
-            DEMO MODE · Sample people & pings
+            DEMO · Sample campus plans
           </Text>
           <TextAction
             label="Exit"
@@ -72,14 +73,18 @@ export default function TabLayout() {
             // Height is left to react-navigation so it can add the home-indicator
             // inset; hardcoding it previously overrode that.
             tabBarStyle: {
-              backgroundColor: colors.white,
+              backgroundColor: colors.surface,
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor: colors.line,
               paddingTop: space.xs,
+              ...(Platform.OS === "web"
+                ? { height: 60, paddingBottom: space.sm }
+                : {}),
             },
             tabBarLabelStyle: {
               fontSize: 11,
-              fontWeight: "700",
+              lineHeight: 14,
+              fontWeight: "600",
               letterSpacing: 0.2,
             },
             tabBarIcon: ({ color, focused }) => {

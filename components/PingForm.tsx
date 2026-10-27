@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useState } from "react";
-import { Alert, ScrollView, Text } from "react-native";
+import { Alert, ScrollView, Text, View } from "react-native";
 import * as Location from "expo-location";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Button,
   Chip,
@@ -9,8 +10,8 @@ import {
   Field,
   Footnote,
   Group,
+  GroupRow,
   Header,
-  OrDivider,
   Page,
   Row,
   Section,
@@ -18,6 +19,7 @@ import {
   TextAction,
   listContent,
 } from "./ui";
+import { LocationPicker, type PickedPlace } from "./LocationPicker";
 import {
   TimeRow,
   TimeWheels,
@@ -70,6 +72,12 @@ type Values = {
   description: string;
   place: string;
   coords: { latitude: number; longitude: number } | null;
+  /**
+   * Where `coords` came from, which the two controls that set it need to tell
+   * apart: the switch reads as on only for its own reading, so a pin dropped on
+   * the map doesn't light it up and claim the ping is where the host is standing.
+   */
+  from: "here" | "map" | null;
   startMin: number;
   endMin: number;
   contributions: string[];
@@ -90,6 +98,7 @@ function valuesFrom(ping?: PingFields): Values {
       description: "",
       place: "",
       coords: null,
+      from: null,
       startMin: start,
       endMin: addMinutes(start, DEFAULT_SPAN),
       contributions: [],
@@ -106,6 +115,10 @@ function valuesFrom(ping?: PingFields): Values {
       ping.latitude !== null && ping.longitude !== null
         ? { latitude: ping.latitude, longitude: ping.longitude }
         : null,
+    // A saved point is just a point: nothing records that it was once read off
+    // the host's own position, so an edit reopens it as a pin.
+    from:
+      ping.latitude !== null && ping.longitude !== null ? "map" : null,
     startMin: minutesOfDay(new Date(ping.starts_at)),
     endMin: minutesOfDay(new Date(ping.expires_at)),
     contributions: ping.contribution_requests || [],
@@ -176,6 +189,7 @@ export function PingForm({
   const [elevated, setElevated] = useState<"start" | "end">("start");
   const [busy, setBusy] = useState(false);
   const [contribution, setContribution] = useState("");
+  const [picking, setPicking] = useState(false);
   const patch = (next: Partial<Values>) =>
     setV((prev) => ({ ...prev, ...next }));
 
@@ -211,11 +225,11 @@ export function PingForm({
     [],
   );
 
-  // The switch reads off `coords`, so a refused permission leaves it off
-  // without any state of its own.
+  // The switch reads off `from`, so a refused permission leaves it off without
+  // any state of its own, and a pin dropped on the map leaves it alone.
   async function toggleHere() {
-    if (v.coords) {
-      patch({ coords: null, place: v.place === HERE ? "" : v.place });
+    if (v.from === "here") {
+      patch({ coords: null, from: null, place: v.place === HERE ? "" : v.place });
       return;
     }
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -229,8 +243,25 @@ export function PingForm({
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       },
+      from: "here",
       place: HERE,
     });
+  }
+
+  // The picker owns the pin and its name together while it is open, so what
+  // comes back replaces both. A name left empty there clears the field rather
+  // than stranding the previous place's name on a new point.
+  function pickPlace(picked: PickedPlace) {
+    patch({
+      coords: { latitude: picked.latitude, longitude: picked.longitude },
+      from: "map",
+      place: picked.name,
+    });
+    setPicking(false);
+  }
+
+  function clearPlace() {
+    patch({ coords: null, from: null, place: v.place === HERE ? "" : v.place });
   }
 
   async function submit() {
@@ -284,151 +315,191 @@ export function PingForm({
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={listContent}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <Page>
-        <Header title={title} subtitle={subtitle} action={headerAction} />
-        <Column gap={space.xxl}>
-          {!ping ? (
-            <Section label="MAKE A QUICK PLAN">
+    <>
+      <ScrollView
+        contentContainerStyle={listContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Page>
+          <Header title={title} subtitle={subtitle} action={headerAction} />
+          <Column gap={space.xxl}>
+            {!ping ? (
+              <Section label="MAKE A QUICK PLAN">
+                <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
+                  {presets.map((preset) => (
+                    <Button
+                      key={preset.activity}
+                      title={preset.activity}
+                      icon={<ActivityIcon activity={preset.activity} size={15} color={colors.green} />}
+                      variant="secondary"
+                      compact
+                      onPress={() =>
+                        patch({
+                          activity: preset.activity,
+                          title: preset.title,
+                          description: preset.description,
+                          place: preset.place,
+                          coords: null,
+                          from: null,
+                        })
+                      }
+                    />
+                  ))}
+                </Row>
+              </Section>
+            ) : null}
+            <Section>
               <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
-                {presets.map((preset) => (
-                  <Button
-                    key={preset.activity}
-                    title={preset.activity}
-                    icon={<ActivityIcon activity={preset.activity} size={15} color={colors.green} />}
-                    variant="secondary"
-                    compact
-                    onPress={() =>
-                      patch({
-                        activity: preset.activity,
-                        title: preset.title,
-                        description: preset.description,
-                        place: preset.place,
-                        coords: null,
-                      })
-                    }
+                {activities.map((a) => (
+                  <Chip
+                    key={a}
+                    label={a}
+                    selected={v.activity === a}
+                    onPress={() => patch({ activity: a })}
                   />
                 ))}
               </Row>
             </Section>
-          ) : null}
-          <Section>
-            <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
-              {activities.map((a) => (
-                <Chip
-                  key={a}
-                  label={a}
-                  selected={v.activity === a}
-                  onPress={() => patch({ activity: a })}
-                />
+
+            <Section label="GIVE IT A TITLE">
+              <Field value={v.title} onChangeText={(title) => patch({ title: title.replace(/[\r\n]+/g, " ") })} placeholder="e.g. Come do art with me" maxLength={80} />
+              <Text style={type.small}>Optional. The activity name is used if you leave this blank.</Text>
+            </Section>
+
+            <Section label="ADD A NOTE">
+              <Field
+                value={v.description}
+                onChangeText={(description) => patch({ description })}
+                placeholder="Anyone want to join?"
+                multiline
+                maxLength={240}
+              />
+            </Section>
+
+            <Section label="PEOPLE" gap={space.md}>
+              <Group>
+                <SwitchRow title="Limit the number of people" value={v.limitEnabled} onValueChange={() => patch({ limitEnabled: !v.limitEnabled })} />
+              </Group>
+              {v.limitEnabled ? (
+                <>
+                  <Field label="People limit" hint="Includes you as the host. Spots reopen when someone leaves." value={v.peopleLimit} onChangeText={(peopleLimit) => patch({ peopleLimit: peopleLimit.replace(/[^0-9]/g, "") })} keyboardType="number-pad" maxLength={4} />
+                  <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
+                    {[4, 6, 8, 12].map((limit) => (
+                      <Chip key={limit} label={String(limit)} selected={v.peopleLimit === String(limit)} onPress={() => patch({ peopleLimit: String(limit) })} />
+                    ))}
+                  </Row>
+                </>
+              ) : <Text style={type.small}>No limit. All your friends are welcome to join.</Text>}
+            </Section>
+
+            <Section label="HELP MAKE IT HAPPEN" gap={space.md}>
+              <Text style={type.small}>Ask for a few things friends can bring or help with. Optional, up to 6 items.</Text>
+              {v.contributions.map((label) => (
+                <Row key={label} spread gap={space.md}>
+                  <Text style={[type.bodyStrong, { flex: 1 }]}>{label}</Text>
+                  <TextAction label="Remove" tone="muted" onPress={() => patch({ contributions: v.contributions.filter((item) => item !== label) })} />
+                </Row>
               ))}
-            </Row>
-          </Section>
+              {v.contributions.length < 6 ? (
+                <>
+                  <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
+                    {contributionSuggestions(v.activity).filter((label) => !v.contributions.some((item) => item.toLowerCase() === label.toLowerCase())).map((label) => (
+                      <Button key={label} title={label} icon="add" compact variant="secondary" onPress={() => addContribution(label)} />
+                    ))}
+                  </Row>
+                  <Row gap={space.sm}>
+                    <Field style={{ flex: 1 }} value={contribution} onChangeText={setContribution} placeholder="Something else?" maxLength={40} returnKeyType="done" onSubmitEditing={() => addContribution(contribution)} />
+                    <Button title="Add" onPress={() => addContribution(contribution)} disabled={!contribution.trim() || v.contributions.some((item) => item.toLowerCase() === contribution.trim().toLowerCase())} />
+                  </Row>
+                </>
+              ) : null}
+              {ping ? <Text style={type.small}>Removing an item releases its claim.</Text> : null}
+            </Section>
 
-          <Section label="GIVE IT A TITLE">
-            <Field value={v.title} onChangeText={(title) => patch({ title: title.replace(/[\r\n]+/g, " ") })} placeholder="e.g. Come do art with me" maxLength={80} />
-            <Text style={type.small}>Optional. The activity name is used if you leave this blank.</Text>
-          </Section>
-
-          <Section label="ADD A NOTE">
-            <Field
-              value={v.description}
-              onChangeText={(description) => patch({ description })}
-              placeholder="Anyone want to join?"
-              multiline
-              maxLength={240}
-            />
-          </Section>
-
-          <Section label="PEOPLE" gap={space.md}>
-            <Group>
-              <SwitchRow title="Limit the number of people" value={v.limitEnabled} onValueChange={() => patch({ limitEnabled: !v.limitEnabled })} />
-            </Group>
-            {v.limitEnabled ? (
-              <>
-                <Field label="People limit" hint="Includes you as the host. Spots reopen when someone leaves." value={v.peopleLimit} onChangeText={(peopleLimit) => patch({ peopleLimit: peopleLimit.replace(/[^0-9]/g, "") })} keyboardType="number-pad" maxLength={4} />
-                <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
-                  {[4, 6, 8, 12].map((limit) => (
-                    <Chip key={limit} label={String(limit)} selected={v.peopleLimit === String(limit)} onPress={() => patch({ peopleLimit: String(limit) })} />
-                  ))}
+            <Section label="LOCATION" gap={space.md}>
+              {/* Renaming the place keeps the point: the name is what friends
+                  read, the point is what puts the ping on the map, and a ping
+                  wants both — so these stack rather than sitting either side of
+                  an "or" the way the name and the switch used to. */}
+              <Field
+                value={v.place}
+                onChangeText={(place) => patch({ place })}
+                placeholder="Add a place (optional)"
+                hint="Friends read the name. Pin it below to put it on the map too."
+              />
+              <Group>
+                <GroupRow
+                  onPress={() => setPicking(true)}
+                  accessibilityLabel={
+                    v.coords ? "Change the spot on the map" : "Pin a spot on the map"
+                  }
+                >
+                  <View style={{ flex: 1, paddingRight: space.md }}>
+                    <Text style={type.body}>
+                      {v.from === "map" ? "Spot pinned on the map" : "Pin a spot on the map"}
+                    </Text>
+                    <Text style={[type.small, { marginTop: space.xs }]}>
+                      {v.coords
+                        ? `${v.coords.latitude.toFixed(4)}, ${v.coords.longitude.toFixed(4)}`
+                        : "Somewhere other than where you are now"}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                </GroupRow>
+                <SwitchRow
+                  title="Use my current location"
+                  value={v.from === "here"}
+                  onValueChange={toggleHere}
+                />
+              </Group>
+              {v.coords ? (
+                <Row>
+                  <TextAction label="Remove the pin" tone="muted" onPress={clearPlace} />
                 </Row>
-              </>
-            ) : <Text style={type.small}>No limit. All your friends are welcome to join.</Text>}
-          </Section>
+              ) : null}
+            </Section>
 
-          <Section label="HELP MAKE IT HAPPEN" gap={space.md}>
-            <Text style={type.small}>Ask for a few things friends can bring or help with. Optional, up to 6 items.</Text>
-            {v.contributions.map((label) => (
-              <Row key={label} spread gap={space.md}>
-                <Text style={[type.bodyStrong, { flex: 1 }]}>{label}</Text>
-                <TextAction label="Remove" tone="muted" onPress={() => patch({ contributions: v.contributions.filter((item) => item !== label) })} />
+            <Section gap={space.md}>
+              <Row gap={space.md}>
+                <TimeRow
+                  label="STARTS"
+                  minutes={v.startMin}
+                  open={openRow === "start"}
+                  onPress={() => toggleRow("start")}
+                />
+                <TimeRow
+                  label="ENDS"
+                  minutes={v.endMin}
+                  open={openRow === "end"}
+                  onPress={() => toggleRow("end")}
+                />
               </Row>
-            ))}
-            {v.contributions.length < 6 ? (
-              <>
-                <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
-                  {contributionSuggestions(v.activity).filter((label) => !v.contributions.some((item) => item.toLowerCase() === label.toLowerCase())).map((label) => (
-                    <Button key={label} title={label} icon="add" compact variant="secondary" onPress={() => addContribution(label)} />
-                  ))}
-                </Row>
-                <Row gap={space.sm}>
-                  <Field style={{ flex: 1 }} value={contribution} onChangeText={setContribution} placeholder="Something else?" maxLength={40} returnKeyType="done" onSubmitEditing={() => addContribution(contribution)} />
-                  <Button title="Add" onPress={() => addContribution(contribution)} disabled={!contribution.trim() || v.contributions.some((item) => item.toLowerCase() === contribution.trim().toLowerCase())} />
-                </Row>
-              </>
-            ) : null}
-            {ping ? <Text style={type.small}>Removing an item releases its claim.</Text> : null}
-          </Section>
+              <Collapsible open={openRow !== null}>
+                <TimeWheels
+                  minutes={elevated === "start" ? v.startMin : v.endMin}
+                  onChange={elevated === "start" ? changeStart : changeEnd}
+                />
+              </Collapsible>
+            </Section>
 
-          <Section label="LOCATION" gap={space.md}>
-            <Field
-              value={v.place}
-              onChangeText={(place) => patch({ place, coords: null })}
-              placeholder="Add a place (optional)"
-            />
-            <OrDivider />
-            <Group>
-              <SwitchRow
-                title="Use my current location"
-                value={v.coords !== null}
-                onValueChange={toggleHere}
-              />
-            </Group>
-          </Section>
-
-          <Section gap={space.md}>
-            <Row gap={space.md}>
-              <TimeRow
-                label="STARTS"
-                minutes={v.startMin}
-                open={openRow === "start"}
-                onPress={() => toggleRow("start")}
-              />
-              <TimeRow
-                label="ENDS"
-                minutes={v.endMin}
-                open={openRow === "end"}
-                onPress={() => toggleRow("end")}
-              />
-            </Row>
-            <Collapsible open={openRow !== null}>
-              <TimeWheels
-                minutes={elevated === "start" ? v.startMin : v.endMin}
-                onChange={elevated === "start" ? changeStart : changeEnd}
-              />
-            </Collapsible>
-          </Section>
-
-          <Column gap={space.md}>
-            <Button title={submitTitle} onPress={submit} loading={busy} />
-            {footnote ? <Footnote>{footnote}</Footnote> : null}
+            <Column gap={space.md}>
+              <Button title={submitTitle} onPress={submit} loading={busy} />
+              {footnote ? <Footnote>{footnote}</Footnote> : null}
+            </Column>
           </Column>
-        </Column>
-      </Page>
-    </ScrollView>
+        </Page>
+      </ScrollView>
+      {/* Mounted only while open, so the map view is torn down with it and the
+          camera reads the ping's current point afresh on every open. */}
+      {picking ? (
+        <LocationPicker
+          initial={v.coords}
+          initialName={v.place === HERE ? "" : v.place}
+          onCancel={() => setPicking(false)}
+          onPick={pickPlace}
+        />
+      ) : null}
+    </>
   );
 }

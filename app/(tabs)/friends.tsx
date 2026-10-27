@@ -200,10 +200,15 @@ export default function Friends() {
           data={demoFriends}
           keyExtractor={(friend) => friend.id}
           contentContainerStyle={[listContent, { gap: space.md }]}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <Card>
               <Row spread>
-                <Identity profile={item} style={{ flex: 1 }} />
+                <Identity
+                  profile={item}
+                  avatar
+                  avatarIndex={index}
+                  style={{ flex: 1 }}
+                />
                 <Text style={type.small}>Demo friend</Text>
               </Row>
             </Card>
@@ -236,12 +241,14 @@ export default function Friends() {
           <Column gap={space.xl}>
             {incoming.length > 0 ? (
               <Section label="REQUESTS FOR YOU" gap={space.md}>
-                {incoming.map((r) => (
+                {incoming.map((r, i) => (
                   <Card key={r.id}>
                     <Row spread>
                       <Identity
                         profile={r.profiles}
                         note="Wants to connect"
+                        avatar
+                        avatarIndex={i}
                         style={{ flex: 1 }}
                       />
                       <Row gap={space.sm}>
@@ -262,10 +269,15 @@ export default function Friends() {
             ) : null}
             {results.length > 0 ? (
               <Section label="SEARCH RESULTS" gap={space.md}>
-                {results.map((p) => (
+                {results.map((p, i) => (
                   <Card key={p.id}>
                     <Row spread>
-                      <Identity profile={p} style={{ flex: 1 }} />
+                      <Identity
+                        profile={p}
+                        avatar
+                        avatarIndex={i}
+                        style={{ flex: 1 }}
+                      />
                       <TextAction
                         label="Add"
                         icon="person-add-outline"
@@ -286,10 +298,15 @@ export default function Friends() {
               : "Add friends to see their pings."}
           </Text>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Card>
             <Row spread>
-              <Identity profile={item} style={{ flex: 1 }} />
+              <Identity
+                profile={item}
+                avatar
+                avatarIndex={index}
+                style={{ flex: 1 }}
+              />
               <IconButton
                 icon="ellipsis-horizontal"
                 label={`Manage ${handleOf(item)}`}

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, hit, radius, space, type } from "../lib/theme";
 import { handleOf, type IdentityProfile } from "../lib/identity";
+import { Avatar } from "./Avatar";
 
 export type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -373,17 +374,23 @@ export function Identity({
   profile,
   size = "body",
   note,
+  avatar,
+  avatarIndex = 0,
   style,
 }: {
   profile?: IdentityProfile | null;
   size?: "body" | "title";
   note?: string;
+  /** Shows initials in a rounded square to the left of the name and handle. */
+  avatar?: boolean;
+  /** Picks the avatar tone, so a list of people reads as distinct faces. */
+  avatarIndex?: number;
   style?: StyleProp<ViewStyle>;
 }) {
   const name = profile?.display_name?.trim();
   const handle = handleOf(profile);
-  return (
-    <View style={style}>
+  const lines = (
+    <View style={avatar ? { flex: 1 } : undefined}>
       {name || !handle ? (
         <Text
           style={size === "title" ? type.title : type.bodyStrong}
@@ -404,6 +411,17 @@ export function Identity({
         <Text style={[type.small, { marginTop: space.xs }]}>{note}</Text>
       ) : null}
     </View>
+  );
+  if (!avatar) return <View style={style}>{lines}</View>;
+  return (
+    <Row gap={space.sm} style={style}>
+      <Avatar
+        profile={profile}
+        index={avatarIndex}
+        size={size === "title" ? 42 : 36}
+      />
+      {lines}
+    </Row>
   );
 }
 
@@ -605,8 +623,34 @@ export function Group({ children }: React.PropsWithChildren) {
   );
 }
 
-/** Full-width row for use inside a Group. */
-export function GroupRow({ children, style, ...props }: ViewProps) {
+/**
+ * Full-width row for use inside a Group. Given `onPress` it becomes the tappable
+ * row itself rather than wrapping one, so the whole width stays the target and
+ * the press tint covers the row edge to edge instead of insetting from it.
+ */
+export function GroupRow({
+  onPress,
+  accessibilityLabel,
+  children,
+  style,
+  ...props
+}: ViewProps & { onPress?: () => void; accessibilityLabel?: string }) {
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={onPress}
+        style={({ pressed }) => [
+          s.groupRow,
+          pressed && { backgroundColor: colors.surfaceAlt },
+          style,
+        ]}
+      >
+        {children}
+      </Pressable>
+    );
+  }
   return (
     <View style={[s.groupRow, style]} {...props}>
       {children}

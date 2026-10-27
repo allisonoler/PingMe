@@ -5,6 +5,7 @@ import { AuthProvider } from "../lib/auth";
 import { colors } from "../lib/theme";
 import { DemoProvider } from "../lib/demo";
 import { IncomingPingAlerts } from "../components/IncomingPingAlerts";
+import { PushSetup } from "../lib/push";
 
 export default function Layout() {
   return (
@@ -18,6 +19,7 @@ export default function Layout() {
               contentStyle: { backgroundColor: colors.canvas },
             }}
           />
+          <PushSetup />
           <IncomingPingAlerts />
         </DemoProvider>
       </AuthProvider>

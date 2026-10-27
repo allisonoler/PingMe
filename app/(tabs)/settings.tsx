@@ -1,9 +1,7 @@
 import { useCallback, useState } from "react";
-import { Alert, Platform, ScrollView, Text } from "react-native";
+import { Alert, ScrollView, Text } from "react-native";
 import { useFocusEffect, router } from "expo-router";
-import { requireOptionalNativeModule } from "expo";
 import * as Device from "expo-device";
-import Constants from "expo-constants";
 import {
   Button,
   Card,
@@ -23,6 +21,7 @@ import { supabase } from "../../lib/supabase";
 import { activities, space, type } from "../../lib/theme";
 import { DISPLAY_NAME_MAX, type IdentityProfile } from "../../lib/identity";
 import { scheduleDemoPing } from "../../lib/localNotifications";
+import { resolvePushToken, setPushOptOut } from "../../lib/push";
 import { useDemo } from "../../lib/demo";
 
 type Pref = {
@@ -31,81 +30,6 @@ type Pref = {
   enabled: boolean;
 };
 
-/**
- * This device's Expo push token, or the reason there isn't one. A switch has to
- * show the current state before anyone touches it, so this runs on load too —
- * hence `prompt`: only the switch may raise the OS permission dialog, never a
- * screen that is merely being looked at.
- */
-async function resolvePushToken(
-  prompt: boolean,
-): Promise<{ token: string } | { problem: string }> {
-  if (!Device.isDevice)
-    return {
-      problem:
-        "Push notifications require a physical device and an EAS development or production build.",
-    };
-  if (
-    Constants.executionEnvironment === "storeClient" ||
-    Constants.appOwnership === "expo" ||
-    requireOptionalNativeModule("ExpoGo")
-  )
-    return {
-      problem:
-        "Remote push needs a PingMe development or production build. For the local demo, tap Send demo ping below.",
-    };
-  // The JS package can be newer than the installed native app. Check before
-  // importing any notification code.
-  if (
-    Platform.OS === "web" ||
-    !requireOptionalNativeModule("ExpoPushTokenManager") ||
-    !requireOptionalNativeModule("ExpoNotificationPermissionsModule") ||
-    !requireOptionalNativeModule("NotificationsServerRegistrationModule")
-  )
-    return {
-      problem:
-        "This build does not include the required notification modules. Rebuild and reinstall PingMe to enable push notifications.",
-    };
-  try {
-    // Avoid the package entry point: it eagerly loads unrelated native modules
-    // and can leave partially initialized exports after a failed import.
-    const permissions =
-      await import("expo-notifications/build/NotificationPermissions");
-    if (
-      typeof permissions.getPermissionsAsync !== "function" ||
-      typeof permissions.requestPermissionsAsync !== "function"
-    )
-      return {
-        problem:
-          "Notification support did not load. Fully close and reopen PingMe, then try Send demo ping for the local demo.",
-      };
-    let status = (await permissions.getPermissionsAsync()).status;
-    if (status !== "granted" && prompt)
-      status = (await permissions.requestPermissionsAsync()).status;
-    if (status !== "granted")
-      return {
-        problem: "Enable notifications for PingMe in your device settings.",
-      };
-    const projectId =
-      Constants.easConfig?.projectId ||
-      Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId)
-      return {
-        problem:
-          "Set your EAS project ID in app.json before registering this device.",
-      };
-    const { getExpoPushTokenAsync } =
-      await import("expo-notifications/build/getExpoPushTokenAsync");
-    return { token: (await getExpoPushTokenAsync({ projectId })).data };
-  } catch (error) {
-    return {
-      problem:
-        error instanceof Error
-          ? error.message
-          : "Use an EAS development build to enable remote notifications.",
-    };
-  }
-}
 export default function Settings() {
   const { demoMode, setDemoMode, resetDemo } = useDemo();
   const [username, setUsername] = useState("");
@@ -248,7 +172,10 @@ export default function Settings() {
           "token" in setup ? await rows.eq("token", setup.token) : await rows;
         if (error)
           Alert.alert("Could not turn off notifications", error.message);
-        else setPushOn(false);
+        else {
+          setPushOptOut(true);
+          setPushOn(false);
+        }
         return;
       }
       const setup = await resolvePushToken(true);
@@ -265,7 +192,10 @@ export default function Settings() {
         { onConflict: "token" },
       );
       if (error) Alert.alert("Could not register device", error.message);
-      else setPushOn(true);
+      else {
+        setPushOptOut(false);
+        setPushOn(true);
+      }
     } finally {
       setPushBusy(false);
     }

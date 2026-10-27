@@ -1,4 +1,41 @@
+import { Platform } from "react-native";
 import type { IdentityProfile } from "./identity";
+
+/**
+ * A link to a ping's point, in whatever maps app the phone prefers.
+ *
+ * Each platform's form keeps the coordinates authoritative and lets the name be
+ * only a caption, which matters because a host's own label for a place — "the
+ * usual courts" — is not something a maps search would find. Searching by that
+ * name could land a friend in another city; the point the host pinned cannot.
+ */
+export function mapsUrl(
+  point: { latitude: number; longitude: number },
+  label?: string | null,
+) {
+  const ll = `${point.latitude},${point.longitude}`;
+  const name = label?.trim();
+  if (Platform.OS === "ios") {
+    // Apple Maps takes the pin from `ll` and only the callout text from `q`.
+    return `https://maps.apple.com/?ll=${ll}&q=${encodeURIComponent(name || "Ping")}`;
+  }
+  if (Platform.OS === "android") {
+    // A geo: intent hands off to whichever maps app is installed. The bracketed
+    // label rides along with the coordinates rather than replacing them.
+    return `geo:${ll}?q=${name ? `${ll}(${encodeURIComponent(name)})` : ll}`;
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${ll}`;
+}
+
+/** The point a ping is at, if it has one. Both columns are set or neither is. */
+export function pointOf(ping: {
+  latitude: number | null;
+  longitude: number | null;
+}) {
+  return ping.latitude !== null && ping.longitude !== null
+    ? { latitude: ping.latitude, longitude: ping.longitude }
+    : null;
+}
 
 export type ContributionClaim = {
   label: string;
@@ -105,10 +142,10 @@ export const presets = [
 export function timeLeft(expiresAt: string, now: number) {
   const minutes = Math.ceil((new Date(expiresAt).getTime() - now) / 60_000);
   if (minutes <= 0) return "Ended";
-  if (minutes < 60) return `Ends in ${minutes} min`;
+  if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  return `Ends in ${hours}h${rest ? ` ${rest}m` : ""}`;
+  return `${hours}h${rest ? ` ${rest}m` : ""}`;
 }
 
 /** Calendar labels use local dates, including across daylight-saving changes. */

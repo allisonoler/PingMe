@@ -8,7 +8,8 @@ import { useDemo } from "../lib/demo";
 import { supabase } from "../lib/supabase";
 import { nameOf } from "../lib/identity";
 import { shouldAnnouncePing, type IncomingPing } from "../lib/incomingPings";
-import { activityIcon } from "../lib/pings";
+import { ActivityIcon } from "./ActivityIcon";
+import { pingTitle } from "../lib/pings";
 import { colors, hit, radius, space, type } from "../lib/theme";
 
 /** Foreground alerts use Realtime, so they also work in Expo Go and on web. */
@@ -45,7 +46,7 @@ export function IncomingPingAlerts() {
         const { data: ping, error } = await supabase
           .from("pings")
           .select(
-            "id,creator_id,activity,description,expires_at,profiles!pings_creator_id_fkey(username,display_name)",
+            "id,creator_id,activity,title,description,expires_at,profiles!pings_creator_id_fkey(username,display_name)",
           )
           .eq("id", id)
           .maybeSingle();
@@ -121,7 +122,7 @@ export function IncomingPingAlerts() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${nameOf(current.profiles)} sent a ${current.activity} ping. View pings.`}
+          accessibilityLabel={`${nameOf(current.profiles)} sent a ping: ${pingTitle(current)}. View pings.`}
           onPress={() => {
             dismiss();
             router.push("/home");
@@ -134,8 +135,8 @@ export function IncomingPingAlerts() {
             gap: space.md,
           }}
         >
-          <Ionicons
-            name={activityIcon(current.activity)}
+          <ActivityIcon
+            activity={current.activity}
             color={colors.white}
             size={26}
           />
@@ -147,7 +148,7 @@ export function IncomingPingAlerts() {
               style={[type.bodyStrong, { color: colors.white }]}
               numberOfLines={1}
             >
-              {nameOf(current.profiles)} · {current.activity}
+              {nameOf(current.profiles)} · {pingTitle(current)}
             </Text>
             <Text
               style={[type.small, { color: colors.white }]}

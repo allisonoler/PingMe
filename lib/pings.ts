@@ -7,7 +7,23 @@ export type ContributionClaim = {
   display_name: string | null;
 };
 
+export type PingUpdate = {
+  id: string;
+  ping_id: string;
+  user_id: string;
+  username: string;
+  display_name: string | null;
+  body: string;
+  created_at: string;
+};
+
+export function pingTitle(ping: { title?: string | null; activity: string }) {
+  return ping.title?.trim() || ping.activity;
+}
+
 export function contributionSuggestions(activity: string): string[] {
+  if (activity === "Art") return ["Art supplies", "Share a technique", "Snacks"];
+  if (activity === "Speech") return ["Time my speech", "Give feedback", "Record a practice run"];
   if (activity === "Pickleball" || activity === "Tennis") return ["Extra paddle", "Balls", "Water"];
   if (activity === "Volleyball" || activity === "Basketball" || activity === "Soccer" || activity === "Football") return ["Bring a ball", "Water", "Ride"];
   if (activity === "Study") return ["Snacks", "Study notes", "Chargers"];
@@ -32,6 +48,7 @@ export function withContribution(ping: Ping, label: string, person: Contribution
 export type Ping = {
   id: string;
   activity: string;
+  title?: string | null;
   description: string | null;
   location_name: string | null;
   latitude: number | null;
@@ -44,46 +61,46 @@ export type Ping = {
   accepted?: boolean;
   is_own?: boolean;
   acceptance_count?: number;
+  /** Total people, including the host. Null/absent means unlimited. */
+  max_people?: number | null;
   contribution_requests?: string[];
   contribution_claims?: ContributionClaim[];
   contributions_unavailable?: boolean;
+  updates?: PingUpdate[];
+  updates_unavailable?: boolean;
 };
+
+export function pingCapacity(ping: Pick<Ping, "acceptance_count" | "ping_acceptances" | "max_people">) {
+  const total = (ping.acceptance_count ?? ping.ping_acceptances?.length ?? 0) + 1;
+  const limit = ping.max_people ?? null;
+  return {
+    total,
+    limit,
+    full: limit !== null && total >= limit,
+    remaining: limit === null ? null : Math.max(0, limit - total),
+  };
+}
 
 export const presets = [
   {
     activity: "Pickleball",
-    icon: "tennisball-outline",
+    title: "One more for doubles?",
     description: "Doubles? Grab a paddle and come play.",
     place: "Pickleball courts",
   },
   {
     activity: "Study",
-    icon: "book-outline",
+    title: "Study together",
     description: "Study break from studying alone. Anyone in?",
     place: "Harold B. Lee Library",
   },
   {
     activity: "Volleyball",
-    icon: "basketball-outline",
+    title: "Volleyball, anyone?",
     description: "Starting a game. All skill levels welcome!",
     place: "Volleyball courts",
   },
 ] as const;
-
-export function activityIcon(activity: string) {
-  if (activity === "Pickleball" || activity === "Tennis")
-    return "tennisball-outline";
-  if (activity === "Study") return "book-outline";
-  if (
-    ["Basketball", "Volleyball", "Soccer", "Football", "Golf"].includes(
-      activity,
-    )
-  )
-    return "basketball-outline";
-  if (["Gym", "Running", "Walk"].includes(activity)) return "fitness-outline";
-  if (activity === "Food") return "restaurant-outline";
-  return "sparkles-outline";
-}
 
 export function timeLeft(expiresAt: string, now: number) {
   const minutes = Math.ceil((new Date(expiresAt).getTime() - now) / 60_000);
@@ -134,11 +151,14 @@ export function withResponse(
   ping: Ping,
   responder?: NonNullable<Ping["ping_acceptances"]>[number],
 ): Ping {
+  // Leaving is always allowed, even when every spot is taken.
+  if (!ping.accepted && pingCapacity(ping).full) return ping;
   return {
     ...ping,
     accepted: !ping.accepted,
     ...(ping.accepted && responder ? {
       contribution_claims: (ping.contribution_claims || []).filter((claim) => claim.user_id !== responder.user_id),
+      updates: (ping.updates || []).filter((update) => update.user_id !== responder.user_id),
     } : {}),
     ...(responder
       ? {
@@ -156,7 +176,7 @@ export function withResponse(
       : {}),
     acceptance_count: Math.max(
       0,
-      (ping.acceptance_count || 0) + (ping.accepted ? -1 : 1),
+      (ping.acceptance_count ?? ping.ping_acceptances?.length ?? 0) + (ping.accepted ? -1 : 1),
     ),
   };
 }

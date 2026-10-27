@@ -6,10 +6,10 @@
 -- migration history to keep in order: edit this file to describe the database
 -- you want, then run it again.
 --
---   psql "$DATABASE_URL" -f supabase/schema.sql
+--   psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f supabase/schema.sql
 --
--- or paste it into the Supabase SQL editor, which wraps it in one transaction so
--- a failure part-way through rolls the whole run back.
+-- or paste the entire file into the Supabase SQL editor. The explicit transaction
+-- below makes either method atomic: a failure rolls the whole run back.
 --
 -- How each kind of object is reconciled:
 --   tables, columns, indexes  added when missing, never dropped or retyped
@@ -23,6 +23,8 @@
 -- and the key loop both skip an object that already exists. Add an explicit
 -- `alter table ... alter column ...` (or drop the old constraint) in the DRIFT
 -- section below, and delete it once every database has run it.
+
+begin;
 
 create extension if not exists pgcrypto with schema extensions;
 
@@ -79,6 +81,7 @@ alter table public.pings
   add column if not exists id uuid not null default gen_random_uuid(),
   add column if not exists creator_id uuid not null,
   add column if not exists activity text not null,
+  add column if not exists title text,
   add column if not exists description text,
   add column if not exists location_name text,
   add column if not exists latitude double precision,
@@ -87,6 +90,7 @@ alter table public.pings
   add column if not exists expires_at timestamptz not null,
   add column if not exists visibility text not null default 'friends',
   add column if not exists contribution_requests text[] not null default '{}',
+  add column if not exists max_people integer,
   add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.ping_acceptances ();
@@ -110,6 +114,15 @@ alter table public.ping_contribution_claims
   add column if not exists label text not null,
   add column if not exists user_id uuid not null,
   add column if not exists created_at timestamptz not null default now();
+
+create table if not exists public.ping_updates ();
+alter table public.ping_updates
+  add column if not exists id uuid not null default gen_random_uuid(),
+  add column if not exists ping_id uuid not null,
+  add column if not exists user_id uuid not null,
+  add column if not exists body text not null,
+  add column if not exists created_at timestamptz not null default now();
+create index if not exists ping_updates_recent_idx on public.ping_updates(ping_id,created_at desc,id desc);
 
 create table if not exists public.push_devices ();
 alter table public.push_devices
@@ -207,6 +220,10 @@ begin
       ('ping_contribution_claims', 'ping_contribution_claims_user_id_fkey',
         'foreign key (user_id) references public.profiles(id) on delete cascade'),
 
+      ('ping_updates', 'ping_updates_pkey', 'primary key (id)'),
+      ('ping_updates', 'ping_updates_ping_id_fkey', 'foreign key (ping_id) references public.pings(id) on delete cascade'),
+      ('ping_updates', 'ping_updates_user_id_fkey', 'foreign key (user_id) references public.profiles(id) on delete cascade'),
+
       -- Deliberately has no primary key: a row with a null friend_id or activity
       -- is the "all friends" or "all activities" default, and a primary key
       -- cannot hold nulls. `nulls not distinct` makes the unique constraint treat
@@ -247,7 +264,7 @@ declare
   -- The one place the allowed activities are listed. Kept in step with
   -- `activities` in lib/theme.ts.
   activity_values constant text := $list$
-    'FHE', 'Food', 'Party', 'Study',
+    'Art', 'FHE', 'Food', 'Party', 'Speech', 'Study',
     'Gym', 'Running', 'Walk',
     'Basketball', 'Football', 'Golf', 'Pickleball', 'Soccer', 'Tennis', 'Volleyball',
     'Other'
@@ -270,10 +287,13 @@ begin
 
       ('pings', 'pings_activity_check', 'check (activity in (' || activity_values || '))'),
       ('pings', 'pings_description_check', 'check (char_length(description) <= 240)'),
+      ('pings', 'pings_title_check', 'check (title is null or (char_length(title) between 1 and 80 and title=trim(title) and title !~ E''[\\n\\r]''))'),
+      ('ping_updates', 'ping_updates_body_check', 'check (char_length(body) between 1 and 200 and body=trim(body) and body ~ ''[^[:space:]]'')'),
       ('pings', 'pings_location_name_check', 'check (char_length(location_name) <= 120)'),
       ('pings', 'pings_latitude_check', 'check (latitude between -90 and 90)'),
       ('pings', 'pings_longitude_check', 'check (longitude between -180 and 180)'),
       ('pings', 'pings_visibility_check', $def$check (visibility = 'friends')$def$),
+      ('pings', 'pings_max_people_check', 'check (max_people is null or max_people between 2 and 1000)'),
       -- A ping always ends after it starts and never runs longer than a day.
       ('pings', 'pings_expiry_window_check',
         $def$check (expires_at > starts_at and expires_at <= starts_at + interval '24 hours')$def$),
@@ -323,6 +343,7 @@ alter table public.reports enable row level security;
 alter table public.pings enable row level security;
 alter table public.ping_acceptances enable row level security;
 alter table public.ping_contribution_claims enable row level security;
+alter table public.ping_updates enable row level security;
 alter table public.notification_preferences enable row level security;
 alter table public.push_devices enable row level security;
 
@@ -335,7 +356,7 @@ begin
     where schemaname = 'public'
       and tablename in (
         'profiles', 'friendships', 'blocks', 'reports',
-        'pings', 'ping_acceptances', 'notification_preferences', 'push_devices', 'ping_contribution_claims'
+        'pings', 'ping_acceptances', 'notification_preferences', 'push_devices', 'ping_contribution_claims', 'ping_updates'
       )
   loop
     execute format('drop policy if exists %I on public.%I', p.policyname, p.tablename);
@@ -615,6 +636,7 @@ language plpgsql security definer set search_path = '' as $$
 begin
   if tg_table_name='ping_acceptances' then
     delete from public.ping_contribution_claims where ping_id=old.ping_id and user_id=old.user_id;
+    delete from public.ping_updates where ping_id=old.ping_id and user_id=old.user_id;
     return old;
   end if;
   delete from public.ping_contribution_claims where ping_id=new.id and not (label=any(new.contribution_requests));
@@ -649,3 +671,125 @@ begin
     alter publication supabase_realtime add table public.ping_contribution_claims;
   end if;
 end $contribution_realtime$;
+
+-- ---------------------------------------------------------------------------
+-- PEOPLE LIMITS
+-- Limits count the host plus acceptances. Every join takes the same parent
+-- row lock as a host editing the limit, so concurrent joins cannot overbook.
+-- A normal acceptance delete releases the spot and its contributions; the
+-- existing acceptance Realtime subscription refreshes everybody's feed.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.enforce_ping_people_limit() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  people_limit integer;
+  guest_count bigint;
+begin
+  if tg_table_name='pings' then
+    if new.max_people is not null then
+      select count(*) into guest_count from public.ping_acceptances where ping_id=new.id;
+      if guest_count+1>new.max_people then
+        raise exception 'Already % people are going, including you. Raise the limit or turn it off.', guest_count+1;
+      end if;
+    end if;
+    return new;
+  end if;
+  if tg_op='UPDATE' and new.ping_id=old.ping_id then return new; end if;
+  select p.max_people into people_limit from public.pings p where p.id=new.ping_id for update;
+  if not found then raise exception 'This ping is no longer available.'; end if;
+  if people_limit is not null then
+    select count(*) into guest_count from public.ping_acceptances where ping_id=new.ping_id;
+    if guest_count+1>=people_limit then
+      raise exception 'This ping just filled up. Check back for a spot if someone leaves.';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists check_ping_people_limit on public.ping_acceptances;
+create trigger check_ping_people_limit before insert or update of ping_id on public.ping_acceptances
+  for each row execute function public.enforce_ping_people_limit();
+drop trigger if exists check_edited_people_limit on public.pings;
+create trigger check_edited_people_limit before update of max_people on public.pings
+  for each row execute function public.enforce_ping_people_limit();
+revoke all on function public.enforce_ping_people_limit() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- SHORT ATTENDEE UPDATES
+-- Readable to friends who can see the plan, excluding blocked authors. Only
+-- hosts and joined attendees can post, and only authors or hosts can delete.
+-- The parent and acceptance locks coordinate posting with withdrawals.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.get_ping_updates(ping_ids uuid[],per_ping_limit integer default 1)
+returns table(id uuid,ping_id uuid,user_id uuid,username text,display_name text,body text,created_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select entry.id,p.id,entry.user_id,profile.username,profile.display_name,entry.body,entry.created_at
+  from public.pings p
+  cross join lateral (
+    select u.* from public.ping_updates u where u.ping_id=p.id
+      and not public.is_blocked(auth.uid(),u.user_id)
+    order by u.created_at desc,u.id desc
+    limit greatest(1,least(coalesce(per_ping_limit,1),50))
+  ) entry
+  join public.profiles profile on profile.id=entry.user_id
+  where auth.uid() is not null and p.id=any(ping_ids) and p.expires_at>now()
+    and (p.creator_id=auth.uid() or (public.is_friend(auth.uid(),p.creator_id) and not public.is_blocked(auth.uid(),p.creator_id)))
+  order by entry.created_at desc,entry.id desc
+$$;
+
+create or replace function public.post_ping_update(target_ping_id uuid,update_body text)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  plan public.pings;
+  new_id uuid;
+  clean_body text := regexp_replace(update_body,'^[[:space:]]+|[[:space:]]+$','','g');
+begin
+  if auth.uid() is null then raise exception 'Sign in to post an update.'; end if;
+  if clean_body is null or char_length(clean_body) not between 1 and 200 then
+    raise exception 'Write an update between 1 and 200 characters.';
+  end if;
+  select * into plan from public.pings where id=target_ping_id for update;
+  if not found or plan.expires_at<=now() or not (plan.creator_id=auth.uid() or
+    (public.is_friend(auth.uid(),plan.creator_id) and not public.is_blocked(auth.uid(),plan.creator_id))) then
+    raise exception 'This ping is no longer available.';
+  end if;
+  if plan.creator_id<>auth.uid() then
+    perform 1 from public.ping_acceptances where ping_id=target_ping_id and user_id=auth.uid() for key share;
+    if not found then raise exception 'Join the ping before posting an update.'; end if;
+  end if;
+  insert into public.ping_updates(ping_id,user_id,body) values(target_ping_id,auth.uid(),clean_body) returning id into new_id;
+  return new_id;
+end $$;
+
+create or replace function public.delete_ping_update(target_update_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare plan public.pings;
+begin
+  select p.* into plan from public.pings p join public.ping_updates u on u.ping_id=p.id
+    where u.id=target_update_id for update of p;
+  if not found or auth.uid() is null or plan.expires_at<=now() or not (plan.creator_id=auth.uid() or
+    (public.is_friend(auth.uid(),plan.creator_id) and not public.is_blocked(auth.uid(),plan.creator_id))) then
+    raise exception 'This update is no longer available.';
+  end if;
+  delete from public.ping_updates where id=target_update_id and (user_id=auth.uid() or plan.creator_id=auth.uid());
+  if not found then raise exception 'Only the author or host can delete an update.'; end if;
+end $$;
+
+create policy "friends read active event updates" on public.ping_updates for select to authenticated using (
+  exists(select 1 from public.pings p where p.id=ping_id) and not public.is_blocked(auth.uid(),user_id)
+);
+revoke all on public.ping_updates from public,anon,authenticated;
+grant select on public.ping_updates to authenticated;
+revoke all on function public.get_ping_updates(uuid[],integer),public.post_ping_update(uuid,text),public.delete_ping_update(uuid) from public,anon;
+grant execute on function public.get_ping_updates(uuid[],integer),public.post_ping_update(uuid,text),public.delete_ping_update(uuid) to authenticated;
+
+do $updates_realtime$
+begin
+  if exists(select 1 from pg_publication where pubname='supabase_realtime') and not exists(
+    select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='ping_updates'
+  ) then alter publication supabase_realtime add table public.ping_updates; end if;
+end $updates_realtime$;
+
+commit;

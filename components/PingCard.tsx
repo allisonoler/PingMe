@@ -10,11 +10,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Row } from "./ui";
-import { activityTone, colors, hit, space } from "../lib/theme";
+import { activityTone, colors, hit, space, type } from "../lib/theme";
 import { Avatar } from "./Avatar";
 import { Contributions } from "./Contributions";
+import { ActivityIcon } from "./ActivityIcon";
 import { nameOf } from "../lib/identity";
-import { activityIcon, pingTimeRange, pingTimeStatus, type Ping } from "../lib/pings";
+import { pingCapacity, pingTitle, pingTimeRange, pingTimeStatus, type Ping } from "../lib/pings";
 
 export function PingCard({
   ping: p,
@@ -26,6 +27,7 @@ export function PingCard({
   onShowAttendees,
   currentUser,
   onClaim,
+  onShowUpdates,
 }: {
   ping: Ping;
   now: number;
@@ -36,6 +38,7 @@ export function PingCard({
   onShowAttendees: () => void;
   currentUser?: string;
   onClaim: (label: string) => void;
+  onShowUpdates: () => void;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const reducedMotion = useRef(false);
@@ -76,7 +79,8 @@ export function PingCard({
     };
   }, [p.accepted, scale]);
   const people = p.ping_acceptances?.slice(0, 3) || [];
-  const count = p.acceptance_count || 0;
+  const capacity = pingCapacity(p);
+  const count = capacity.total;
   const tone = activityTone(p.activity);
   const timeRange = pingTimeRange(p, now);
   return (
@@ -85,15 +89,16 @@ export function PingCard({
         <Row spread gap={space.sm} style={{ alignItems: "flex-start" }}>
           <Row gap={space.md} style={{ flex: 1 }}>
             <View style={[s.activity, { backgroundColor: tone.background }]}>
-              <Ionicons
-                name={activityIcon(p.activity)}
+              <ActivityIcon
+                activity={p.activity}
                 size={22}
                 color={tone.ink}
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.title}>{p.activity}</Text>
+              <Text style={s.title} numberOfLines={2}>{pingTitle(p)}</Text>
               <Text style={s.host} numberOfLines={1}>
+                {p.title?.trim() ? `${p.activity} · ` : ""}
                 {nameOf(p.profiles)}
                 {p.is_own ? " · Your ping" : ""}
               </Text>
@@ -109,6 +114,14 @@ export function PingCard({
             <Text style={s.schedule}>{timeRange}</Text>
           </Row>
         ) : null}
+        {capacity.limit !== null ? (
+          <View style={{ alignSelf: "flex-start", backgroundColor: capacity.full ? colors.mint : colors.surfaceAlt, paddingHorizontal: space.sm, paddingVertical: space.xs, borderRadius: 6 }}>
+            <Text style={{ color: colors.green, fontSize: 12, lineHeight: 18, fontWeight: "700" }}>
+              {capacity.full ? "Full" : `${capacity.remaining} ${capacity.remaining === 1 ? "spot" : "spots"} left`}
+              {p.accepted ? " · You’re going" : ""}
+            </Text>
+          </View>
+        ) : null}
         {p.description ? (
           <Text style={s.description}>{p.description}</Text>
         ) : null}
@@ -119,11 +132,18 @@ export function PingCard({
           </Text>
         </Row>
         <Contributions ping={p} currentUser={currentUser} busy={busy} onClaim={onClaim} />
+        <Pressable accessibilityRole="button" accessibilityLabel={`View updates for ${pingTitle(p)}`} onPress={onShowUpdates} style={({ pressed }) => ({ borderTopWidth: 1, borderTopColor: colors.line, paddingTop: space.md, gap: space.xs, minHeight: hit, opacity: pressed ? 0.6 : 1 })}>
+          <Row spread>
+            <Row><Ionicons name="chatbubble-ellipses-outline" size={17} color={colors.green} /><Text style={type.fieldLabel}>Updates</Text></Row>
+            <Ionicons name="chevron-forward" size={14} color={colors.green} />
+          </Row>
+          {p.updates_unavailable ? <Text style={type.small}>Refresh to load updates.</Text> : p.updates?.[0] ? <Text numberOfLines={2} style={type.small}>{nameOf(p.updates[0])}: {p.updates[0].body}</Text> : null}
+        </Pressable>
       </View>
       <Row spread gap={space.sm} style={s.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`See who's coming, ${count} going`}
+          accessibilityLabel={`See who's coming, ${count}${capacity.limit !== null ? ` of ${capacity.limit}` : ""} going, including the host`}
           onPress={onShowAttendees}
           style={({ pressed }) => ({
             minHeight: hit,
@@ -152,7 +172,7 @@ export function PingCard({
               <Ionicons name="people-outline" size={18} color={colors.green} />
             )}
             <Text style={s.attendees}>
-              {count ? `${count} going` : "Be the first"}
+              {capacity.limit !== null ? `${count}/${capacity.limit} going` : `${count} going`}
             </Text>
             <Ionicons name="chevron-forward" size={12} color={colors.green} />
           </Row>
@@ -177,12 +197,12 @@ export function PingCard({
         ) : (
           <Animated.View style={{ transform: [{ scale }] }}>
             <Button
-              title={p.accepted ? "Going" : "I'm in"}
-              icon={p.accepted ? "checkmark-circle" : "add"}
+              title={p.accepted ? "Leave" : capacity.full ? "Full" : "I'm in"}
+              icon={p.accepted ? "exit-outline" : capacity.full ? "people" : "add"}
               variant={p.accepted ? "secondary" : "primary"}
               compact
               onPress={onRespond}
-              disabled={busy}
+              disabled={busy || (!p.accepted && capacity.full)}
             />
           </Animated.View>
         )}

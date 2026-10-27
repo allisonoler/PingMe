@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     });
   const { data: ping } = await admin
     .from("pings")
-    .select("id,creator_id,activity,description,expires_at")
+    .select("id,creator_id,activity,title,description,expires_at")
     .eq("id", body.pingId)
     .maybeSingle();
   if (
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
   const messages = (devices || []).map((d) => ({
     to: d.token,
     sound: "default",
-    title: `${ping.activity} with a friend`,
+    title: ping.title?.trim() || `${ping.activity} with a friend`,
     body: ping.description || "Tap to see the details and join in.",
     data: { pingId: ping.id },
     channelId: "pings",

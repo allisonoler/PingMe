@@ -15,7 +15,8 @@ import { Button, Row } from "./ui";
 import { loadAttendees, type Attendee } from "../lib/attendees";
 import { useAuth } from "../lib/auth";
 import { nameOf } from "../lib/identity";
-import { activityIcon, type Ping } from "../lib/pings";
+import { pingCapacity, pingTitle, type Ping } from "../lib/pings";
+import { ActivityIcon } from "./ActivityIcon";
 import { Avatar } from "./Avatar";
 import { colors, hit, radius, space, type } from "../lib/theme";
 
@@ -57,6 +58,12 @@ export function AttendeeSheet({
     };
   }, [refresh]);
   const currentUser = demoMode ? "demo-you" : session?.user.id;
+  const capacity = pingCapacity(ping);
+  const attendees: Attendee[] = [{
+    user_id: ping.creator_id,
+    username: ping.profiles?.username || "",
+    display_name: ping.profiles?.display_name || null,
+  }, ...people.filter((person) => person.user_id !== ping.creator_id)];
   return (
     <Modal
       visible
@@ -77,8 +84,8 @@ export function AttendeeSheet({
             <View style={s.handle} />
             <Row gap={space.md}>
               <View style={s.activity}>
-                <Ionicons
-                  name={activityIcon(ping.activity)}
+                <ActivityIcon
+                  activity={ping.activity}
                   size={22}
                   color={colors.forest}
                 />
@@ -88,7 +95,7 @@ export function AttendeeSheet({
                   Who's coming
                 </Text>
                 <Text style={s.subtitle}>
-                  {ping.activity} · {nameOf(ping.profiles)}
+                  {pingTitle(ping)} · {nameOf(ping.profiles)}
                 </Text>
               </View>
               <Pressable
@@ -130,7 +137,7 @@ export function AttendeeSheet({
               </View>
             ) : (
               <FlatList
-                data={people}
+                data={attendees}
                 keyExtractor={(person) => person.user_id}
                 style={{ flexGrow: 0 }}
                 showsVerticalScrollIndicator={false}
@@ -144,8 +151,7 @@ export function AttendeeSheet({
                 ListHeaderComponent={
                   <Row spread style={{ marginBottom: space.sm }}>
                     <Text style={s.count}>
-                      {people.length}{" "}
-                      {people.length === 1 ? "person" : "people"} going
+                      {capacity.limit !== null ? `${capacity.total}/${capacity.limit}` : capacity.total}{" "}going · Includes host
                     </Text>
                     <Ionicons
                       name="people-outline"
@@ -155,19 +161,6 @@ export function AttendeeSheet({
                   </Row>
                 }
                 ItemSeparatorComponent={() => <View style={s.separator} />}
-                ListEmptyComponent={
-                  <View style={s.empty}>
-                    <Ionicons
-                      name="people-outline"
-                      size={26}
-                      color={colors.green}
-                    />
-                    <Text style={type.bodyStrong}>Room for the first yes.</Text>
-                    <Text style={[type.small, { textAlign: "center" }]}>
-                      No one has joined yet. Be the first to make it a plan.
-                    </Text>
-                  </View>
-                }
                 renderItem={({ item, index }) => (
                   <Row gap={space.md} style={s.person}>
                     <Avatar profile={item} index={index} size={34} />
@@ -181,6 +174,9 @@ export function AttendeeSheet({
                         </Text>
                       ) : null}
                     </View>
+                    {item.user_id === ping.creator_id ? (
+                      <View style={s.you}><Text style={s.youText}>Host</Text></View>
+                    ) : null}
                     {item.user_id === currentUser ? (
                       <View style={s.you}>
                         <Text style={s.youText}>You</Text>

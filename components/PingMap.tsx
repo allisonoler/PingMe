@@ -1,16 +1,20 @@
 import { Platform } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { radius } from "../lib/theme";
+import { colors, radius } from "../lib/theme";
 import { nameOf } from "../lib/identity";
+import { pingCapacity, pingTitle } from "../lib/pings";
 
 export type MapPing = {
   id: string;
   activity: string;
+  title?: string | null;
   description: string | null;
   location_name: string | null;
   latitude: number | null;
   longitude: number | null;
+  max_people?: number | null;
+  acceptance_count?: number;
   profiles?: { display_name?: string | null; username: string } | null;
 };
 export function PingMap({ pings }: { pings: MapPing[] }) {
@@ -51,16 +55,21 @@ export function PingMap({ pings }: { pings: MapPing[] }) {
         longitudeDelta: first ? 0.12 : 24,
       }}
     >
-      {located.map((p) => (
-        <Marker
-          key={p.id}
-          coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-          // A marker title is one string, so nameOf picks the name and falls
-          // back to the `@`-prefixed handle rather than a bare username.
-          title={`${nameOf(p.profiles)} · ${p.activity}`}
-          description={p.location_name || p.description || ""}
-        />
-      ))}
+      {located.map((p) => {
+        const capacity = pingCapacity(p);
+        const availability = capacity.limit === null ? "" : ` · ${capacity.total}/${capacity.limit} going · ${capacity.full ? "Full" : `${capacity.remaining} ${capacity.remaining === 1 ? "spot" : "spots"} left`}`;
+        return (
+          <Marker
+            key={p.id}
+            coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
+            // A marker title is one string, so nameOf picks the name and falls
+            // back to the `@`-prefixed handle rather than a bare username.
+            title={`${pingTitle(p)} · ${nameOf(p.profiles)}`}
+            description={`${p.location_name || p.description || ""}${availability}`}
+            pinColor={capacity.full ? colors.muted : colors.green}
+          />
+        );
+      })}
     </MapView>
   );
 }

@@ -304,9 +304,11 @@ export default function Settings() {
             <Card>
               <Column>
                 <Text style={type.body}>
-                  Sample friends and pings stay on this device. Join a game,
-                  create a plan, or reset for the next judge.
+                  Host an art hangout, help time a speech, or fill the last
+                  pickleball spot. My Events has your plans and contributions.
+                  Everything stays on this device.
                 </Text>
+                <Button title="Open My Events" icon="calendar-outline" variant="secondary" onPress={() => router.navigate("/my-events")} />
                 <Button
                   title="Reset demo"
                   variant="secondary"

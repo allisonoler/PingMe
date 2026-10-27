@@ -1,6 +1,6 @@
 # PingMe
 
-PingMe is an Expo + React Native app for short-lived activity pings shared between friends. The app includes email authentication, username search and friend requests, an active ping feed/map, ping creation, editing and acceptance, notification preferences, push registration, account deletion, and a Supabase migration with row-level security.
+PingMe is an Expo + React Native app for short-lived activity pings shared between friends. The app includes email authentication, username search and friend requests, an active ping feed/map, ping creation, editing and acceptance, notification preferences, push registration, account deletion, and a rerunnable Supabase schema with row-level security.
 
 ## Run locally
 
@@ -19,13 +19,19 @@ The project pins Expo SDK 58 to match your Expo Go release; `expo install --fix`
 
 ## Backend setup
 
-`supabase/schema.sql` is the whole database, as one rerunnable file rather than a migration history. It creates profile, friendship, ping, acceptance, notification preference, push device, block, and report tables; RLS policies; account deletion and count RPCs; and Realtime publication membership. Apply it by pasting it into the Supabase SQL editor, which runs it in a single transaction, or with `psql "$DATABASE_URL" -f supabase/schema.sql`.
+`supabase/schema.sql` is the only database setup and update file. It includes tables, constraints, RLS policies, RPCs, triggers, and Realtime publication membership for all features, including attendee lists, contributions, and people limits. For initial setup or any schema update, paste the entire file into the Supabase SQL editor and run it, or use `psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f supabase/schema.sql`. The file includes an explicit transaction so a failure rolls back the whole update. There are no separate SQL patches to run.
 
 Run it again whenever the file changes. It builds an empty database from scratch and, on a database that is already set up, applies only what has drifted without touching existing rows, so there is nothing to apply in order and no migration state to repair. Edit the file to describe the database you want; its header explains which objects it reconciles automatically and the one case (changing an existing column's type or default, or an existing key) that needs a line in its DRIFT section.
 
-For claimable contributions, reapply `supabase/schema.sql` before using the updated app with real accounts. This adds the requests column, claims table, claim/read RPCs, cleanup triggers, and Realtime subscription. Hosts can request up to six items when creating or editing a ping. Hosts and friends who have joined can claim available items and release their own claims. Leaving a ping releases that person's claims; removing a request or cancelling a ping clears the corresponding claims. Each item can have one claimant, enforced in the database. Demo mode includes sample contributions and works without a backend update.
+For claimable contributions, hosts can request up to six items when creating or editing a ping. Hosts and friends who have joined can claim available items and release their own claims. Leaving a ping releases that person's claims; removing a request or cancelling a ping clears the corresponding claims. Each item can have one claimant, enforced in the database. Demo mode includes sample contributions and works without a backend update.
 
-To enable the clickable attendee list on an existing database, apply `supabase/enable-attendee-list.sql` in the SQL editor, or reapply the full schema. The **going** count opens a guest list with names and usernames. Hosts can still load their own guest lists before this update is applied.
+The optional people limit counts everyone, including the host; leaving it off keeps a ping unlimited. Full pings stay visible with their going count, and attendees can leave to reopen a spot. Database triggers serialize joins and limit changes to prevent overbooking and reject lowering a limit below the number already going. Demo mode includes a four-person pickleball game with one spot left and a full six-person volleyball game.
+
+The **going** count opens an attendee list with names and usernames, including the host. Its RPC and permissions are included in the same schema file.
+
+Demo mode has eight Provo/Orem plans, including an art hangout you host, a speech practice you have joined as timekeeper, shared taco prep, a photo walk, and a workout buddy request. Reset the demo from Settings to load fresh examples. My Events starts with your art and speech commitments; claimed contributions show how friends share supplies, skills, and feedback. The Art and Speech activity categories are included in `supabase/schema.sql`; reapply it before creating real pings in those categories.
+
+Pings can also have an optional custom title (up to 80 characters). Blank titles fall back to the activity name. Open **Updates** on a card to read short notes (up to 200 characters each). Hosts and joined attendees can post; authors can delete their own notes, and hosts can moderate their event. Leaving removes that person's notes along with their contribution claims. Updates are visible to friends who can see the active ping, with blocked authors hidden, and refresh live in both tabs. The panel shows the latest 50 notes. Reapply the same schema file for titles and updates; redeploy `notify-ping` to include custom titles in remote push notifications. Demo mode includes example titles and collaborative notes without a backend update.
 
 Deploy push delivery:
 

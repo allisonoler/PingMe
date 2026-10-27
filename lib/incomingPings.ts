@@ -2,6 +2,7 @@ export type IncomingPing = {
   id: string;
   creator_id: string;
   activity: string;
+  title?: string | null;
   description: string | null;
   expires_at: string;
   profiles?: { username: string; display_name?: string | null } | null;

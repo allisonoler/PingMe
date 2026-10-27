@@ -29,7 +29,7 @@ export function Contributions({ ping, currentUser, busy, onClaim }: {
                 <Ionicons name={claim ? "checkmark-circle" : "ellipse-outline"} size={20} color={claim ? colors.green : colors.muted} />
                 <View style={{ flex: 1 }}>
                   <Text style={type.bodyStrong}>{label}</Text>
-                  <Text style={type.small}>{claim ? (own ? "You’ve got this" : `${person} has this covered`) : "Up for grabs"}</Text>
+                  {claim ? <Text style={type.small}>{own ? "You" : person}</Text> : null}
                 </View>
                 {!claim || own ? (
                   <Button title={own ? "Release" : "Claim"} compact variant="secondary" disabled={busy || !canClaim} onPress={() => onClaim(label)} />
@@ -37,7 +37,7 @@ export function Contributions({ ping, currentUser, busy, onClaim }: {
               </Row>
             );
           })}
-          {!canClaim ? <Text style={type.small}>Tap “I’m in” to claim something and help out.</Text> : null}
+          {!canClaim ? <Text style={type.small}>Join to claim an item.</Text> : null}
         </>
       )}
     </View>

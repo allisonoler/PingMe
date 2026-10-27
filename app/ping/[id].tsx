@@ -6,9 +6,10 @@ import { Header, Page, TextAction } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
 import { colors, space } from "../../lib/theme";
 import { useDemo } from "../../lib/demo";
+import { pingCapacity } from "../../lib/pings";
 
 const COLUMNS =
-  "creator_id,activity,description,location_name,latitude,longitude,starts_at,expires_at,contribution_requests";
+  "creator_id,activity,title,description,location_name,latitude,longitude,starts_at,expires_at,contribution_requests,max_people";
 
 /** Back to wherever this was opened from, or the feed on a cold deep link. */
 function leave() {
@@ -31,8 +32,10 @@ export default function EditPing() {
       }
       setPing({
         ...sample,
+        title: sample.title || null,
         starts_at: sample.starts_at || new Date().toISOString(),
         contribution_requests: sample.contribution_requests || [],
+        max_people: sample.max_people ?? null,
       });
       return;
     }
@@ -66,6 +69,11 @@ export default function EditPing() {
 
   async function save(fields: PingFields) {
     if (demoMode) {
+      const sample = demoPings.find((item) => item.id === id && item.is_own);
+      if (sample && fields.max_people !== null && fields.max_people < pingCapacity(sample).total) {
+        Alert.alert("People are already going", `Choose a limit of at least ${pingCapacity(sample).total}, including yourself, or turn the limit off.`);
+        return false;
+      }
       setDemoPings((items) =>
         items.map((item) =>
           item.id === id && item.is_own ? {

@@ -25,8 +25,9 @@ import {
   minutesBetween,
   roundUpToStep,
 } from "./TimePicker";
-import { activities, defaultActivity, space, type } from "../lib/theme";
+import { activities, colors, defaultActivity, space, type } from "../lib/theme";
 import { contributionSuggestions, presets } from "../lib/pings";
+import { ActivityIcon } from "./ActivityIcon";
 
 const DEFAULT_SPAN = 60;
 // The place name the coordinates come with, so turning the switch back off
@@ -39,6 +40,7 @@ const GRACE_MIN = 10;
 /** The `pings` columns the form reads from, and writes back to. */
 export type PingFields = {
   activity: string;
+  title: string | null;
   description: string | null;
   location_name: string | null;
   latitude: number | null;
@@ -46,6 +48,7 @@ export type PingFields = {
   starts_at: string;
   expires_at: string;
   contribution_requests: string[];
+  max_people: number | null;
 };
 
 /** Midnight-relative `minutes` as a real date, `days` from today. */
@@ -63,12 +66,15 @@ function minutesOfDay(date: Date) {
 
 type Values = {
   activity: string;
+  title: string;
   description: string;
   place: string;
   coords: { latitude: number; longitude: number } | null;
   startMin: number;
   endMin: number;
   contributions: string[];
+  limitEnabled: boolean;
+  peopleLimit: string;
 };
 
 /**
@@ -80,16 +86,20 @@ function valuesFrom(ping?: PingFields): Values {
     const start = roundUpToStep(new Date());
     return {
       activity: defaultActivity,
+      title: "",
       description: "",
       place: "",
       coords: null,
       startMin: start,
       endMin: addMinutes(start, DEFAULT_SPAN),
       contributions: [],
+      limitEnabled: false,
+      peopleLimit: "4",
     };
   }
   return {
     activity: ping.activity,
+    title: ping.title || "",
     description: ping.description || "",
     place: ping.location_name || "",
     coords:
@@ -99,6 +109,8 @@ function valuesFrom(ping?: PingFields): Values {
     startMin: minutesOfDay(new Date(ping.starts_at)),
     endMin: minutesOfDay(new Date(ping.expires_at)),
     contributions: ping.contribution_requests || [],
+    limitEnabled: ping.max_people != null,
+    peopleLimit: String(ping.max_people ?? 4),
   };
 }
 
@@ -223,6 +235,11 @@ export function PingForm({
 
   async function submit() {
     if (busy) return;
+    const maxPeople = v.limitEnabled ? Number(v.peopleLimit) : null;
+    if (maxPeople !== null && (!/^\d+$/.test(v.peopleLimit) || !Number.isInteger(maxPeople) || maxPeople < 2 || maxPeople > 1000)) {
+      Alert.alert("Check the people limit", "Choose a whole number from 2 to 1,000, including yourself.");
+      return;
+    }
     if (contribution.trim()) {
       Alert.alert("Add your contribution", "Tap Add to include the item, or clear it before sharing.");
       return;
@@ -248,6 +265,7 @@ export function PingForm({
     try {
       const saved = await onSubmit({
         activity: v.activity,
+        title: v.title.trim() || null,
         description: v.description.trim() || null,
         location_name: v.place.trim() || null,
         latitude: v.coords?.latitude ?? null,
@@ -255,6 +273,7 @@ export function PingForm({
         starts_at: startsAt.toISOString(),
         expires_at: expiresAt.toISOString(),
         contribution_requests: v.contributions,
+        max_people: maxPeople,
       });
       if (saved && !ping) setV(valuesFrom());
     } catch (error) {
@@ -280,12 +299,13 @@ export function PingForm({
                   <Button
                     key={preset.activity}
                     title={preset.activity}
-                    icon={preset.icon}
+                    icon={<ActivityIcon activity={preset.activity} size={15} color={colors.green} />}
                     variant="secondary"
                     compact
                     onPress={() =>
                       patch({
                         activity: preset.activity,
+                        title: preset.title,
                         description: preset.description,
                         place: preset.place,
                         coords: null,
@@ -309,6 +329,11 @@ export function PingForm({
             </Row>
           </Section>
 
+          <Section label="GIVE IT A TITLE">
+            <Field value={v.title} onChangeText={(title) => patch({ title: title.replace(/[\r\n]+/g, " ") })} placeholder="e.g. Come do art with me" maxLength={80} />
+            <Text style={type.small}>Optional. The activity name is used if you leave this blank.</Text>
+          </Section>
+
           <Section label="ADD A NOTE">
             <Field
               value={v.description}
@@ -317,6 +342,22 @@ export function PingForm({
               multiline
               maxLength={240}
             />
+          </Section>
+
+          <Section label="PEOPLE" gap={space.md}>
+            <Group>
+              <SwitchRow title="Limit the number of people" value={v.limitEnabled} onValueChange={() => patch({ limitEnabled: !v.limitEnabled })} />
+            </Group>
+            {v.limitEnabled ? (
+              <>
+                <Field label="People limit" hint="Includes you as the host. Spots reopen when someone leaves." value={v.peopleLimit} onChangeText={(peopleLimit) => patch({ peopleLimit: peopleLimit.replace(/[^0-9]/g, "") })} keyboardType="number-pad" maxLength={4} />
+                <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
+                  {[4, 6, 8, 12].map((limit) => (
+                    <Chip key={limit} label={String(limit)} selected={v.peopleLimit === String(limit)} onPress={() => patch({ peopleLimit: String(limit) })} />
+                  ))}
+                </Row>
+              </>
+            ) : <Text style={type.small}>No limit. All your friends are welcome to join.</Text>}
           </Section>
 
           <Section label="HELP MAKE IT HAPPEN" gap={space.md}>

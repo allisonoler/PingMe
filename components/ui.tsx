@@ -143,7 +143,7 @@ export function Button({
   disabled,
 }: {
   title?: string;
-  icon?: IconName;
+  icon?: IconName | React.ReactElement;
   onPress: () => void;
   variant?: Variant;
   compact?: boolean;
@@ -183,9 +183,9 @@ export function Button({
         <ActivityIndicator color={fg} />
       ) : (
         <>
-          {icon ? (
+          {typeof icon === "string" ? (
             <Ionicons name={icon} size={compact ? 15 : 18} color={fg} />
-          ) : null}
+          ) : icon || null}
           {title ? (
             <Text
               style={[type.button, compact && { fontSize: 14 }, { color: fg }]}

@@ -46,7 +46,7 @@ export const avatarTones = [
 ];
 
 export function activityTone(activity: string) {
-  if (activity === "Study") return avatarTones[2];
+  if (activity === "Study" || activity === "Art" || activity === "Speech") return avatarTones[2];
   if (activity === "Food" || activity === "FHE") return avatarTones[1];
   return avatarTones[0];
 }
@@ -110,7 +110,7 @@ export const type = {
 // Grouped by category, alphabetical inside each group, with the catch-all last.
 // Fitness sits next to sports so the active options read as one run of chips.
 // Kept in step with the `activity` check constraints in supabase/schema.sql.
-const HANGOUTS = ["FHE", "Food", "Party", "Study"];
+const HANGOUTS = ["Art", "FHE", "Food", "Party", "Speech", "Study"];
 const FITNESS = ["Gym", "Running", "Walk"];
 const SPORTS = [
   "Basketball",

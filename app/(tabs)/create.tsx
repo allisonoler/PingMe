@@ -43,12 +43,9 @@ export default function Create() {
     <>
       <PingForm
         title="New ping"
-        subtitle="Let friends know what you’re up for."
         submitTitle={demoMode ? "Add demo ping" : "Share ping with friends"}
         footnote={
-          demoMode
-            ? "Demo only. This ping stays on this device."
-            : "Only friends can see this ping."
+          demoMode ? "Demo only. This ping stays on this device." : undefined
         }
         onSubmit={create}
       />

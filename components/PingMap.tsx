@@ -1,9 +1,9 @@
-import { Platform } from "react-native";
+import { Platform, StyleSheet, Text } from "react-native";
 import { useEffect, useRef, useState } from "react";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { colors, radius } from "../lib/theme";
+import MapView, { Callout, Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { colors, radius, space, type } from "../lib/theme";
 import { nameOf } from "../lib/identity";
-import { pingCapacity, pingTitle } from "../lib/pings";
+import { openInMaps, pingCapacity, pingTitle } from "../lib/pings";
 
 export type MapPing = {
   id: string;
@@ -57,19 +57,56 @@ export function PingMap({ pings }: { pings: MapPing[] }) {
     >
       {located.map((p) => {
         const capacity = pingCapacity(p);
-        const availability = capacity.limit === null ? "" : ` · ${capacity.total}/${capacity.limit} going · ${capacity.full ? "Full" : `${capacity.remaining} ${capacity.remaining === 1 ? "spot" : "spots"} left`}`;
+        const point = { latitude: p.latitude!, longitude: p.longitude! };
+        const availability = capacity.limit === null ? null : `${capacity.total}/${capacity.limit} going · ${capacity.full ? "Full" : `${capacity.remaining} ${capacity.remaining === 1 ? "spot" : "spots"} left`}`;
+        // The host's own words for the place when there are any, so the link
+        // reads as the spot rather than as a pair of numbers.
+        const address = p.location_name?.trim() || p.description?.trim() ||
+          `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`;
         return (
           <Marker
             key={p.id}
-            coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-            // A marker title is one string, so nameOf picks the name and falls
-            // back to the `@`-prefixed handle rather than a bare username.
-            title={`${pingTitle(p)} · ${nameOf(p.profiles)}`}
-            description={`${p.location_name || p.description || ""}${availability}`}
+            coordinate={point}
+            // Android draws a callout as a flat snapshot, so a press inside it
+            // never reaches a child view. The marker-level handler fires on
+            // both platforms, which is why the whole callout is the link.
+            onCalloutPress={() => openInMaps(point, p.location_name)}
             pinColor={capacity.full ? colors.muted : colors.green}
-          />
+          >
+            <Callout
+              style={s.callout}
+              accessibilityLabel={`Open ${address} in Maps`}
+            >
+              <Text style={s.title} numberOfLines={2}>
+                {`${pingTitle(p)} · ${nameOf(p.profiles)}`}
+              </Text>
+              {availability ? (
+                <Text style={s.meta} numberOfLines={1}>{availability}</Text>
+              ) : null}
+              <Text style={s.link} numberOfLines={2}>{address}</Text>
+              <Text style={s.hint}>Tap to open in Maps</Text>
+            </Callout>
+          </Marker>
         );
       })}
     </MapView>
   );
 }
+
+// Icon fonts and images inside an Android callout can come out blank, since the
+// callout is rasterised before they finish loading. Underline carries the link
+// instead of an icon, and the hint line says where the tap goes.
+const s = StyleSheet.create({
+  callout: { width: 220, paddingVertical: space.xs, gap: 2 },
+  title: { ...type.bodyStrong, fontSize: 14, lineHeight: 19 },
+  meta: { ...type.small, fontSize: 12, lineHeight: 16 },
+  link: {
+    ...type.small,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.green,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  hint: { ...type.small, fontSize: 11, lineHeight: 15 },
+});

@@ -1,9 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   AccessibilityInfo,
-  Alert,
   Animated,
-  Linking,
   Pressable,
   Platform,
   StyleSheet,
@@ -17,7 +15,7 @@ import { Avatar } from "./Avatar";
 import { Contributions } from "./Contributions";
 import { ActivityIcon } from "./ActivityIcon";
 import { nameOf } from "../lib/identity";
-import { mapsUrl, pingCapacity, pingTitle, pingTimeRange, pingTimeStatus, pointOf, type Ping } from "../lib/pings";
+import { openInMaps, pingCapacity, pingTitle, pingTimeRange, pingTimeStatus, pointOf, type Ping } from "../lib/pings";
 
 export function PingCard({
   ping: p,
@@ -93,21 +91,6 @@ export function PingCard({
     ? expiry
     : `${expiry} left`;
 
-  // A handoff to another app can be refused — no maps app on an Android build,
-  // a blocked scheme on web — so the failure says so rather than looking like a
-  // dead tap.
-  async function openInMaps() {
-    if (!point) return;
-    const url = mapsUrl(point, p.location_name);
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert(
-        "Could not open Maps",
-        `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`,
-      );
-    }
-  }
   return (
     <View style={s.card}>
       <View style={s.content}>
@@ -154,7 +137,7 @@ export function PingCard({
           <Pressable
             accessibilityRole="link"
             accessibilityLabel={`Open ${p.location_name || "the spot"} in Maps`}
-            onPress={openInMaps}
+            onPress={() => point && openInMaps(point, p.location_name)}
             hitSlop={space.sm}
             style={({ pressed }) => [s.locationRow, pressed && { opacity: 0.55 }]}
           >
@@ -164,14 +147,12 @@ export function PingCard({
             </Text>
             <Ionicons name="open-outline" size={12} color={colors.green} />
           </Pressable>
-        ) : (
+        ) : p.location_name ? (
           <Row gap={5}>
             <Ionicons name="location-outline" size={13} color={colors.muted} />
-            <Text style={s.location}>
-              {p.location_name || "Ask your friend for the spot"}
-            </Text>
+            <Text style={s.location}>{p.location_name}</Text>
           </Row>
-        )}
+        ) : null}
         <Contributions ping={p} currentUser={currentUser} busy={busy} onClaim={onClaim} />
         <Pressable accessibilityRole="button" accessibilityLabel={`View updates for ${pingTitle(p)}`} onPress={onShowUpdates} style={({ pressed }) => ({ borderTopWidth: 1, borderTopColor: colors.line, paddingTop: space.md, gap: space.xs, minHeight: hit, opacity: pressed ? 0.6 : 1 })}>
           <Row spread>

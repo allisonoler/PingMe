@@ -325,7 +325,7 @@ export function PingForm({
           <Header title={title} subtitle={subtitle} action={headerAction} />
           <Column gap={space.xxl}>
             {!ping ? (
-              <Section label="MAKE A QUICK PLAN">
+              <Section>
                 <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
                   {presets.map((preset) => (
                     <Button
@@ -362,12 +362,11 @@ export function PingForm({
               </Row>
             </Section>
 
-            <Section label="GIVE IT A TITLE">
+            <Section label="TITLE">
               <Field value={v.title} onChangeText={(title) => patch({ title: title.replace(/[\r\n]+/g, " ") })} placeholder="e.g. Come do art with me" maxLength={80} />
-              <Text style={type.small}>Optional. The activity name is used if you leave this blank.</Text>
             </Section>
 
-            <Section label="ADD A NOTE">
+            <Section label="DESCRIPTION">
               <Field
                 value={v.description}
                 onChangeText={(description) => patch({ description })}
@@ -390,11 +389,10 @@ export function PingForm({
                     ))}
                   </Row>
                 </>
-              ) : <Text style={type.small}>No limit. All your friends are welcome to join.</Text>}
+              ) : null}
             </Section>
 
-            <Section label="HELP MAKE IT HAPPEN" gap={space.md}>
-              <Text style={type.small}>Ask for a few things friends can bring or help with. Optional, up to 6 items.</Text>
+            <Section label="HELP WANTED" gap={space.md}>
               {v.contributions.map((label) => (
                 <Row key={label} spread gap={space.md}>
                   <Text style={[type.bodyStrong, { flex: 1 }]}>{label}</Text>
@@ -426,7 +424,6 @@ export function PingForm({
                 value={v.place}
                 onChangeText={(place) => patch({ place })}
                 placeholder="Add a place (optional)"
-                hint="Friends read the name. Pin it below to put it on the map too."
               />
               <Group>
                 <GroupRow
@@ -439,11 +436,11 @@ export function PingForm({
                     <Text style={type.body}>
                       {v.from === "map" ? "Spot pinned on the map" : "Pin a spot on the map"}
                     </Text>
-                    <Text style={[type.small, { marginTop: space.xs }]}>
-                      {v.coords
-                        ? `${v.coords.latitude.toFixed(4)}, ${v.coords.longitude.toFixed(4)}`
-                        : "Somewhere other than where you are now"}
-                    </Text>
+                    {v.coords ? (
+                      <Text style={[type.small, { marginTop: space.xs }]}>
+                        {`${v.coords.latitude.toFixed(4)}, ${v.coords.longitude.toFixed(4)}`}
+                      </Text>
+                    ) : null}
                   </View>
                   <Ionicons name="chevron-forward" size={16} color={colors.muted} />
                 </GroupRow>

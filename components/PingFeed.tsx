@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
 import { PingMap } from "./PingMap";
 import { PingCard } from "./PingCard";
@@ -33,6 +34,7 @@ import { useAuth } from "../lib/auth";
 /** Both tabs share loading, realtime updates, and all event actions. */
 export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const narrow = width < 360;
   const { demoMode, demoPings, setDemoPings } = useDemo();
   const { session } = useAuth();
@@ -307,9 +309,8 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
                 subtitle="Plans you’ve joined or are hosting."
                 action={<TextAction label="New ping" icon="add" onPress={() => router.push("/create")} />}
               />
-              <Row spread style={{ marginBottom: space.lg }}>
+              <Row style={{ marginBottom: space.lg, justifyContent: "flex-end" }}>
                 <Text style={type.label}>{visible.length} {visible.length === 1 ? "PLAN" : "PLANS"}</Text>
-                <Text style={type.small}>Next up first</Text>
               </Row>
             </View>
           ) : (
@@ -500,7 +501,7 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
           accessibilityLiveRegion="polite"
           style={{
             position: "absolute",
-            bottom: space.lg,
+            top: insets.top + space.lg,
             left: space.lg,
             right: space.lg,
             backgroundColor: colors.ink,

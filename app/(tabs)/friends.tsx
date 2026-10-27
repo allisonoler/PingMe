@@ -218,7 +218,7 @@ export default function Friends() {
     );
   return (
     <Page>
-      <Header title="Friends" subtitle="Find your people by username." />
+      <Header title="Friends" />
       <Row gap={space.sm} style={{ marginBottom: space.xl }}>
         <Field
           style={{ flex: 1 }}

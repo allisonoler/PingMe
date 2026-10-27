@@ -276,7 +276,7 @@ export default function Settings() {
       showsVerticalScrollIndicator={false}
     >
       <Page>
-        <Header title="Settings" subtitle="Tune who and what you hear about." />
+        <Header title="Settings" />
         <Column gap={space.xxl}>
           <Section label="HACKATHON DEMO">
             <Group>
@@ -289,9 +289,6 @@ export default function Settings() {
                 }}
               />
             </Group>
-            <Footnote>
-              Explore sample friends and pings without changing your account.
-            </Footnote>
           </Section>
           <Section>
             <Card>
@@ -327,38 +324,22 @@ export default function Settings() {
                 onValueChange={togglePush}
               />
             </Group>
-            <Footnote>
-              Remote push requires a PingMe build. To try a notification in Expo
-              Go, use Send demo ping below.
-            </Footnote>
           </Section>
 
           <Section label="TRY A DEMO PING">
             <Card>
               <Column gap={space.md}>
-                <Text style={type.small}>
-                  Preview a sample ping on this phone. It arrives in about 10
-                  seconds, even if you leave the app.
-                </Text>
                 <Button
                   title="Send demo ping"
                   variant="secondary"
                   onPress={sendDemoPing}
                   loading={demoBusy}
                 />
-                <Footnote>
-                  This is a local demo notification. It does not send a ping to
-                  your friends.
-                </Footnote>
               </Column>
             </Card>
           </Section>
 
           <Section label="PING NOTIFICATIONS">
-            <Footnote>
-              New friend pings show an alert while PingMe is open and online.
-              These preferences apply to both live alerts and remote push.
-            </Footnote>
             <Group>
               <SwitchRow
                 title="All friend pings"
@@ -407,7 +388,6 @@ export default function Settings() {
               variant="danger"
               onPress={deleteAccount}
             />
-            <Footnote>PingMe · Privacy first, plans second</Footnote>
           </Column>
         </Column>
       </Page>

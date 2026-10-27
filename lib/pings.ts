@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 import type { IdentityProfile } from "./identity";
 
 /**
@@ -25,6 +25,27 @@ export function mapsUrl(
     return `geo:${ll}?q=${name ? `${ll}(${encodeURIComponent(name)})` : ll}`;
   }
   return `https://www.google.com/maps/search/?api=1&query=${ll}`;
+}
+
+/**
+ * Hand a ping's point off to the phone's maps app.
+ *
+ * A handoff to another app can be refused — no maps app on an Android build, a
+ * blocked scheme on web — so the failure shows the coordinates rather than
+ * looking like a dead tap.
+ */
+export async function openInMaps(
+  point: { latitude: number; longitude: number },
+  label?: string | null,
+) {
+  try {
+    await Linking.openURL(mapsUrl(point, label));
+  } catch {
+    Alert.alert(
+      "Could not open Maps",
+      `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`,
+    );
+  }
 }
 
 /** The point a ping is at, if it has one. Both columns are set or neither is. */

@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { Alert, ScrollView, Text } from "react-native";
 import * as Location from "expo-location";
 import {
   Button,
@@ -15,6 +15,7 @@ import {
   Row,
   Section,
   SwitchRow,
+  TextAction,
   listContent,
 } from "./ui";
 import {
@@ -24,8 +25,8 @@ import {
   minutesBetween,
   roundUpToStep,
 } from "./TimePicker";
-import { activities, defaultActivity, space } from "../lib/theme";
-import { presets } from "../lib/pings";
+import { activities, defaultActivity, space, type } from "../lib/theme";
+import { contributionSuggestions, presets } from "../lib/pings";
 
 const DEFAULT_SPAN = 60;
 // The place name the coordinates come with, so turning the switch back off
@@ -44,6 +45,7 @@ export type PingFields = {
   longitude: number | null;
   starts_at: string;
   expires_at: string;
+  contribution_requests: string[];
 };
 
 /** Midnight-relative `minutes` as a real date, `days` from today. */
@@ -66,6 +68,7 @@ type Values = {
   coords: { latitude: number; longitude: number } | null;
   startMin: number;
   endMin: number;
+  contributions: string[];
 };
 
 /**
@@ -82,6 +85,7 @@ function valuesFrom(ping?: PingFields): Values {
       coords: null,
       startMin: start,
       endMin: addMinutes(start, DEFAULT_SPAN),
+      contributions: [],
     };
   }
   return {
@@ -94,6 +98,7 @@ function valuesFrom(ping?: PingFields): Values {
         : null,
     startMin: minutesOfDay(new Date(ping.starts_at)),
     endMin: minutesOfDay(new Date(ping.expires_at)),
+    contributions: ping.contribution_requests || [],
   };
 }
 
@@ -158,8 +163,16 @@ export function PingForm({
   const [openRow, setOpenRow] = useState<"start" | "end" | null>(null);
   const [elevated, setElevated] = useState<"start" | "end">("start");
   const [busy, setBusy] = useState(false);
+  const [contribution, setContribution] = useState("");
   const patch = (next: Partial<Values>) =>
     setV((prev) => ({ ...prev, ...next }));
+
+  function addContribution(value: string) {
+    const label = value.trim();
+    if (!label || v.contributions.length >= 6 || v.contributions.some((item) => item.toLowerCase() === label.toLowerCase())) return;
+    patch({ contributions: [...v.contributions, label] });
+    setContribution("");
+  }
 
   function toggleRow(row: "start" | "end") {
     setElevated(row);
@@ -209,6 +222,11 @@ export function PingForm({
   }
 
   async function submit() {
+    if (busy) return;
+    if (contribution.trim()) {
+      Alert.alert("Add your contribution", "Tap Add to include the item, or clear it before sharing.");
+      return;
+    }
     if (v.startMin === v.endMin) {
       Alert.alert(
         "Check the times",
@@ -227,17 +245,23 @@ export function PingForm({
     }
 
     setBusy(true);
-    const saved = await onSubmit({
-      activity: v.activity,
-      description: v.description.trim() || null,
-      location_name: v.place.trim() || null,
-      latitude: v.coords?.latitude ?? null,
-      longitude: v.coords?.longitude ?? null,
-      starts_at: startsAt.toISOString(),
-      expires_at: expiresAt.toISOString(),
-    });
-    setBusy(false);
-    if (saved && !ping) setV(valuesFrom());
+    try {
+      const saved = await onSubmit({
+        activity: v.activity,
+        description: v.description.trim() || null,
+        location_name: v.place.trim() || null,
+        latitude: v.coords?.latitude ?? null,
+        longitude: v.coords?.longitude ?? null,
+        starts_at: startsAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        contribution_requests: v.contributions,
+      });
+      if (saved && !ping) setV(valuesFrom());
+    } catch (error) {
+      Alert.alert("Could not save ping", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -293,6 +317,30 @@ export function PingForm({
               multiline
               maxLength={240}
             />
+          </Section>
+
+          <Section label="HELP MAKE IT HAPPEN" gap={space.md}>
+            <Text style={type.small}>Ask for a few things friends can bring or help with. Optional, up to 6 items.</Text>
+            {v.contributions.map((label) => (
+              <Row key={label} spread gap={space.md}>
+                <Text style={[type.bodyStrong, { flex: 1 }]}>{label}</Text>
+                <TextAction label="Remove" tone="muted" onPress={() => patch({ contributions: v.contributions.filter((item) => item !== label) })} />
+              </Row>
+            ))}
+            {v.contributions.length < 6 ? (
+              <>
+                <Row gap={space.sm} style={{ flexWrap: "wrap" }}>
+                  {contributionSuggestions(v.activity).filter((label) => !v.contributions.some((item) => item.toLowerCase() === label.toLowerCase())).map((label) => (
+                    <Button key={label} title={label} icon="add" compact variant="secondary" onPress={() => addContribution(label)} />
+                  ))}
+                </Row>
+                <Row gap={space.sm}>
+                  <Field style={{ flex: 1 }} value={contribution} onChangeText={setContribution} placeholder="Something else?" maxLength={40} returnKeyType="done" onSubmitEditing={() => addContribution(contribution)} />
+                  <Button title="Add" onPress={() => addContribution(contribution)} disabled={!contribution.trim() || v.contributions.some((item) => item.toLowerCase() === contribution.trim().toLowerCase())} />
+                </Row>
+              </>
+            ) : null}
+            {ping ? <Text style={type.small}>Removing an item releases its claim.</Text> : null}
           </Section>
 
           <Section label="LOCATION" gap={space.md}>

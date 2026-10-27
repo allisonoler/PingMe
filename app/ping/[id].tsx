@@ -8,7 +8,7 @@ import { colors, space } from "../../lib/theme";
 import { useDemo } from "../../lib/demo";
 
 const COLUMNS =
-  "creator_id,activity,description,location_name,latitude,longitude,starts_at,expires_at";
+  "creator_id,activity,description,location_name,latitude,longitude,starts_at,expires_at,contribution_requests";
 
 /** Back to wherever this was opened from, or the feed on a cold deep link. */
 function leave() {
@@ -32,6 +32,7 @@ export default function EditPing() {
       setPing({
         ...sample,
         starts_at: sample.starts_at || new Date().toISOString(),
+        contribution_requests: sample.contribution_requests || [],
       });
       return;
     }
@@ -67,7 +68,10 @@ export default function EditPing() {
     if (demoMode) {
       setDemoPings((items) =>
         items.map((item) =>
-          item.id === id && item.is_own ? { ...item, ...fields } : item,
+          item.id === id && item.is_own ? {
+            ...item, ...fields,
+            contribution_claims: (item.contribution_claims || []).filter((claim) => fields.contribution_requests.includes(claim.label)),
+          } : item,
         ),
       );
       leave();

@@ -1,5 +1,34 @@
 import type { IdentityProfile } from "./identity";
 
+export type ContributionClaim = {
+  label: string;
+  user_id: string | null;
+  username: string | null;
+  display_name: string | null;
+};
+
+export function contributionSuggestions(activity: string): string[] {
+  if (activity === "Pickleball" || activity === "Tennis") return ["Extra paddle", "Balls", "Water"];
+  if (activity === "Volleyball" || activity === "Basketball" || activity === "Soccer" || activity === "Football") return ["Bring a ball", "Water", "Ride"];
+  if (activity === "Study") return ["Snacks", "Study notes", "Chargers"];
+  return ["Snacks", "Drinks", "Ride"];
+}
+
+/** Demo updates follow the same ownership rules as the claim RPC. */
+export function withContribution(ping: Ping, label: string, person: ContributionClaim): Ping {
+  if ((!ping.accepted && !ping.is_own) || !person.user_id || new Date(ping.expires_at).getTime() <= Date.now()) return ping;
+  if (!(ping.contribution_requests || []).includes(label)) return ping;
+  const claims = ping.contribution_claims || [];
+  const existing = claims.find((claim) => claim.label === label);
+  if (existing && existing.user_id !== person.user_id) return ping;
+  return {
+    ...ping,
+    contribution_claims: existing
+      ? claims.filter((claim) => claim.label !== label)
+      : [...claims, { ...person, label }],
+  };
+}
+
 export type Ping = {
   id: string;
   activity: string;
@@ -15,6 +44,9 @@ export type Ping = {
   accepted?: boolean;
   is_own?: boolean;
   acceptance_count?: number;
+  contribution_requests?: string[];
+  contribution_claims?: ContributionClaim[];
+  contributions_unavailable?: boolean;
 };
 
 export const presets = [
@@ -105,6 +137,9 @@ export function withResponse(
   return {
     ...ping,
     accepted: !ping.accepted,
+    ...(ping.accepted && responder ? {
+      contribution_claims: (ping.contribution_claims || []).filter((claim) => claim.user_id !== responder.user_id),
+    } : {}),
     ...(responder
       ? {
           ping_acceptances: ping.accepted

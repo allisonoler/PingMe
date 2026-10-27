@@ -24,12 +24,15 @@ import {
 import { supabase } from "../../lib/supabase";
 import { colors, radius, space, type } from "../../lib/theme";
 import { useDemo } from "../../lib/demo";
-import { withResponse, type Ping } from "../../lib/pings";
+import { withContribution, withResponse, type ContributionClaim, type Ping } from "../../lib/pings";
+import { useAuth } from "../../lib/auth";
 
 export default function Home() {
   const { width } = useWindowDimensions();
   const narrow = width < 360;
   const { demoMode, demoPings, setDemoPings } = useDemo();
+  const { session } = useAuth();
+  const currentUser = demoMode ? "demo-you" : session?.user.id;
   const [pings, setPings] = useState<Ping[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [view, setView] = useState<"list" | "map">("map");
@@ -74,6 +77,13 @@ export default function Home() {
       const counts = new Map<string, number>();
       for (const item of summaries.data || [])
         counts.set(item.ping_id, item.total);
+      const contributions = rows.some((p) => p.contribution_requests?.length)
+        ? await supabase.rpc("get_ping_contributions", { ping_ids: rows.map((p) => p.id) })
+        : { data: [], error: null };
+      const claims = new Map<string, ContributionClaim[]>();
+      for (const item of contributions.data || []) {
+        claims.set(item.ping_id, [...(claims.get(item.ping_id) || []), item]);
+      }
       if (request !== generation.current || mode.current) return;
       setPings((previous) =>
         rows.map((p) =>
@@ -82,6 +92,8 @@ export default function Home() {
             : {
                 ...p,
                 is_own: p.creator_id === user.id,
+                contribution_claims: claims.get(p.id) || [],
+                contributions_unavailable: !!contributions.error,
                 accepted:
                   p.ping_acceptances?.some(
                     (a: { user_id: string }) => a.user_id === user.id,
@@ -128,6 +140,11 @@ export default function Home() {
         () => {
           void load();
         },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ping_contribution_claims" },
+        () => { void load(); },
       )
       .on(
         "postgres_changes",
@@ -207,6 +224,33 @@ export default function Home() {
     const { error } = await supabase.from("pings").delete().eq("id", p.id);
     if (error) Alert.alert("Could not cancel ping", error.message);
     else void load();
+  }
+  async function claimContribution(p: Ping, label: string) {
+    if (pending.current.has(p.id) || !currentUser || (!p.accepted && !p.is_own) || p.contributions_unavailable) return;
+    const existing = p.contribution_claims?.find((item) => item.label === label);
+    if (existing && existing.user_id !== currentUser) return;
+    if (demoMode) {
+      setDemoPings((items) => items.map((item) => item.id === p.id
+        ? withContribution(item, label, { label, user_id: "demo-you", username: "you", display_name: "You" })
+        : item));
+      setNotice(existing ? "Item released. Someone else can help." : "You’ve got it. Thanks for helping out!");
+      return;
+    }
+    pending.current.add(p.id);
+    setBusy(new Set(pending.current));
+    try {
+      const { error } = await supabase.rpc("set_contribution_claim", {
+        target_ping_id: p.id, item_label: label, should_claim: !existing,
+      });
+      if (error) throw new Error(error.message);
+      if (!mode.current) setNotice(existing ? "Item released. Someone else can help." : "You’ve got it. Thanks for helping out!");
+    } catch (error) {
+      if (!mode.current) Alert.alert("Could not update contribution", error instanceof Error ? error.message : "Please refresh and try again.");
+    } finally {
+      pending.current.delete(p.id);
+      setBusy(new Set(pending.current));
+      void load();
+    }
   }
   const visible = (demoMode ? demoPings : pings).filter(
     (p) => new Date(p.expires_at).getTime() > now,
@@ -380,6 +424,8 @@ export default function Home() {
             ping={p}
             now={now}
             busy={busy.has(p.id)}
+            currentUser={currentUser}
+            onClaim={(label) => claimContribution(p, label)}
             onRespond={() => accept(p)}
             onEdit={() =>
               router.push({ pathname: "/ping/[id]", params: { id: p.id } })

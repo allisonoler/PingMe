@@ -21,6 +21,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       longitude: -111.6783,
       minutes: 35,
       count: 3,
+      contribution_requests: ["Extra paddle", "Water"],
     },
     {
       activity: "Study",
@@ -30,6 +31,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       longitude: -111.6493,
       minutes: 80,
       count: 2,
+      contribution_requests: ["Snacks", "Chargers"],
     },
     {
       activity: "Volleyball",
@@ -39,6 +41,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       longitude: -111.6946,
       minutes: 110,
       count: 5,
+      contribution_requests: ["Bring a ball", "Water", "Ride"],
     },
   ].map((p, index) => ({
     ...p,
@@ -50,6 +53,12 @@ export function makeDemoPings(now = Date.now()): Ping[] {
     accepted: false,
     is_own: false,
     acceptance_count: p.count,
+    contribution_claims: [{
+      label: p.contribution_requests[0],
+      user_id: demoFriends[(index + 1) % demoFriends.length].id,
+      username: demoFriends[(index + 1) % demoFriends.length].username,
+      display_name: demoFriends[(index + 1) % demoFriends.length].display_name,
+    }],
     ping_acceptances: Array.from({ length: p.count }, (_, n) => ({
       user_id: demoFriends[(index + n + 1) % demoFriends.length].id,
       profiles: demoFriends[(index + n + 1) % demoFriends.length],

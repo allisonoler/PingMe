@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button, Row } from "./ui";
 import { activityTone, colors, hit, space } from "../lib/theme";
 import { Avatar } from "./Avatar";
+import { Contributions } from "./Contributions";
 import { nameOf } from "../lib/identity";
 import { activityIcon, pingTimeRange, pingTimeStatus, type Ping } from "../lib/pings";
 
@@ -23,6 +24,8 @@ export function PingCard({
   onEdit,
   onCancel,
   onShowAttendees,
+  currentUser,
+  onClaim,
 }: {
   ping: Ping;
   now: number;
@@ -31,6 +34,8 @@ export function PingCard({
   onEdit: () => void;
   onCancel: () => void;
   onShowAttendees: () => void;
+  currentUser?: string;
+  onClaim: (label: string) => void;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const reducedMotion = useRef(false);
@@ -113,6 +118,7 @@ export function PingCard({
             {p.location_name || "Ask your friend for the spot"}
           </Text>
         </Row>
+        <Contributions ping={p} currentUser={currentUser} busy={busy} onClaim={onClaim} />
       </View>
       <Row spread gap={space.sm} style={s.footer}>
         <Pressable

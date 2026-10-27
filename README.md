@@ -23,6 +23,8 @@ The project pins Expo SDK 58 to match your Expo Go release; `expo install --fix`
 
 Run it again whenever the file changes. It builds an empty database from scratch and, on a database that is already set up, applies only what has drifted without touching existing rows, so there is nothing to apply in order and no migration state to repair. Edit the file to describe the database you want; its header explains which objects it reconciles automatically and the one case (changing an existing column's type or default, or an existing key) that needs a line in its DRIFT section.
 
+For claimable contributions, reapply `supabase/schema.sql` before using the updated app with real accounts. This adds the requests column, claims table, claim/read RPCs, cleanup triggers, and Realtime subscription. Hosts can request up to six items when creating or editing a ping. Hosts and friends who have joined can claim available items and release their own claims. Leaving a ping releases that person's claims; removing a request or cancelling a ping clears the corresponding claims. Each item can have one claimant, enforced in the database. Demo mode includes sample contributions and works without a backend update.
+
 To enable the clickable attendee list on an existing database, apply `supabase/enable-attendee-list.sql` in the SQL editor, or reapply the full schema. The **going** count opens a guest list with names and usernames. Hosts can still load their own guest lists before this update is applied.
 
 Deploy push delivery:

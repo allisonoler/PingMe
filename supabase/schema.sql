@@ -26,6 +26,14 @@
 
 create extension if not exists pgcrypto with schema extensions;
 
+create or replace function public.valid_contribution_requests(items text[]) returns boolean
+language sql immutable set search_path = '' as $$
+  select items is not null and cardinality(items)<=6
+    and coalesce(array_ndims(items),1)=1
+    and not exists(select 1 from unnest(items) label where label is null or char_length(label) not between 1 and 40 or label<>trim(label))
+    and (select count(distinct lower(label)) from unnest(items) label)=cardinality(items)
+$$;
+
 
 -- ---------------------------------------------------------------------------
 -- TABLES AND COLUMNS
@@ -78,6 +86,7 @@ alter table public.pings
   add column if not exists starts_at timestamptz not null default now(),
   add column if not exists expires_at timestamptz not null,
   add column if not exists visibility text not null default 'friends',
+  add column if not exists contribution_requests text[] not null default '{}',
   add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.ping_acceptances ();
@@ -93,6 +102,14 @@ alter table public.notification_preferences
   add column if not exists activity text,
   add column if not exists enabled boolean not null default true,
   add column if not exists updated_at timestamptz not null default now();
+
+create table if not exists public.ping_contribution_claims ();
+alter table public.ping_contribution_claims
+  add column if not exists id uuid not null default gen_random_uuid(),
+  add column if not exists ping_id uuid not null,
+  add column if not exists label text not null,
+  add column if not exists user_id uuid not null,
+  add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.push_devices ();
 alter table public.push_devices
@@ -181,6 +198,13 @@ begin
       ('ping_acceptances', 'ping_acceptances_ping_id_fkey',
         'foreign key (ping_id) references public.pings(id) on delete cascade'),
       ('ping_acceptances', 'ping_acceptances_user_id_fkey',
+        'foreign key (user_id) references public.profiles(id) on delete cascade'),
+
+      ('ping_contribution_claims', 'ping_contribution_claims_pkey', 'primary key (id)'),
+      ('ping_contribution_claims', 'ping_contribution_claims_ping_id_label_key', 'unique (ping_id, label)'),
+      ('ping_contribution_claims', 'ping_contribution_claims_ping_id_fkey',
+        'foreign key (ping_id) references public.pings(id) on delete cascade'),
+      ('ping_contribution_claims', 'ping_contribution_claims_user_id_fkey',
         'foreign key (user_id) references public.profiles(id) on delete cascade'),
 
       -- Deliberately has no primary key: a row with a null friend_id or activity
@@ -298,6 +322,7 @@ alter table public.blocks enable row level security;
 alter table public.reports enable row level security;
 alter table public.pings enable row level security;
 alter table public.ping_acceptances enable row level security;
+alter table public.ping_contribution_claims enable row level security;
 alter table public.notification_preferences enable row level security;
 alter table public.push_devices enable row level security;
 
@@ -310,7 +335,7 @@ begin
     where schemaname = 'public'
       and tablename in (
         'profiles', 'friendships', 'blocks', 'reports',
-        'pings', 'ping_acceptances', 'notification_preferences', 'push_devices'
+        'pings', 'ping_acceptances', 'notification_preferences', 'push_devices', 'ping_contribution_claims'
       )
   loop
     execute format('drop policy if exists %I on public.%I', p.policyname, p.tablename);
@@ -528,3 +553,99 @@ begin
     end if;
   end if;
 end $realtime$;
+
+-- ---------------------------------------------------------------------------
+-- CLAIMABLE CONTRIBUTIONS
+-- Requests live on the ping so creating/editing the plan is a single write.
+-- Claims are writable only through the RPC, which locks the plan and checks
+-- membership before claiming. A unique key arbitrates simultaneous claims;
+-- the opaque primary key keeps labels out of Realtime delete payloads.
+-- ---------------------------------------------------------------------------
+
+alter table public.pings drop constraint if exists pings_contribution_requests_check;
+alter table public.pings add constraint pings_contribution_requests_check
+  check (public.valid_contribution_requests(contribution_requests));
+
+create or replace function public.get_ping_contributions(ping_ids uuid[])
+returns table(ping_id uuid,label text,user_id uuid,username text,display_name text)
+language sql stable security definer set search_path = '' as $$
+  select c.ping_id,c.label,
+    case when public.is_blocked(auth.uid(),c.user_id) then null else c.user_id end,
+    case when public.is_blocked(auth.uid(),c.user_id) then null else profile.username end,
+    case when public.is_blocked(auth.uid(),c.user_id) then null else profile.display_name end
+  from public.ping_contribution_claims c
+  join public.pings p on p.id=c.ping_id
+  join public.profiles profile on profile.id=c.user_id
+  where auth.uid() is not null and p.id=any(ping_ids) and p.expires_at>now()
+    and c.label=any(p.contribution_requests)
+    and (p.creator_id=auth.uid() or (public.is_friend(auth.uid(),p.creator_id) and not public.is_blocked(auth.uid(),p.creator_id)))
+$$;
+
+create or replace function public.set_contribution_claim(target_ping_id uuid,item_label text,should_claim boolean)
+returns void language plpgsql security definer set search_path = '' as $$
+declare plan public.pings;
+begin
+  if auth.uid() is null then raise exception 'Sign in to help with this ping.'; end if;
+  select * into plan from public.pings where id=target_ping_id for update;
+  if not found or plan.expires_at<=now() or not (plan.creator_id=auth.uid() or
+    (public.is_friend(auth.uid(),plan.creator_id) and not public.is_blocked(auth.uid(),plan.creator_id))) then
+    raise exception 'This ping is no longer available.';
+  end if;
+  if item_label is null or not (item_label=any(plan.contribution_requests)) then
+    raise exception 'The host has removed this contribution.';
+  end if;
+  if should_claim is null then raise exception 'Choose whether to claim or release this item.'; end if;
+  if not should_claim then
+    delete from public.ping_contribution_claims where ping_id=target_ping_id and label=item_label and user_id=auth.uid();
+    return;
+  end if;
+  if plan.creator_id<>auth.uid() then
+    -- Lock the acceptance too, so a simultaneous withdrawal cannot leave a
+    -- new claim behind after its cleanup trigger has run.
+    perform 1 from public.ping_acceptances where ping_id=target_ping_id and user_id=auth.uid() for key share;
+    if not found then raise exception 'Join the ping before claiming a contribution.'; end if;
+  end if;
+  insert into public.ping_contribution_claims(ping_id,label,user_id)
+    values(target_ping_id,item_label,auth.uid()) on conflict do nothing;
+  if not found then raise exception 'Someone already claimed this item. Refresh to see who is helping.'; end if;
+end $$;
+
+create or replace function public.release_ping_contributions() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_table_name='ping_acceptances' then
+    delete from public.ping_contribution_claims where ping_id=old.ping_id and user_id=old.user_id;
+    return old;
+  end if;
+  delete from public.ping_contribution_claims where ping_id=new.id and not (label=any(new.contribution_requests));
+  return new;
+end $$;
+
+drop trigger if exists release_contributions_on_leave on public.ping_acceptances;
+create trigger release_contributions_on_leave after delete on public.ping_acceptances
+  for each row execute function public.release_ping_contributions();
+drop trigger if exists release_removed_contributions on public.pings;
+create trigger release_removed_contributions after update of contribution_requests on public.pings
+  for each row execute function public.release_ping_contributions();
+
+create policy "friends see active contribution changes" on public.ping_contribution_claims
+  for select to authenticated using (
+    exists(select 1 from public.pings p where p.id=ping_id)
+    and not public.is_blocked(auth.uid(),user_id)
+  );
+-- Realtime can read visible changes; identities in the feed come through the
+-- scoped RPC above. Clients never insert, update or delete claims directly.
+revoke all on public.ping_contribution_claims from public, anon, authenticated;
+grant select on public.ping_contribution_claims to authenticated;
+revoke all on function public.get_ping_contributions(uuid[]), public.set_contribution_claim(uuid,text,boolean),
+  public.release_ping_contributions() from public, anon;
+grant execute on function public.get_ping_contributions(uuid[]), public.set_contribution_claim(uuid,text,boolean) to authenticated;
+
+do $contribution_realtime$
+begin
+  if exists(select 1 from pg_publication where pubname='supabase_realtime') and not exists(
+    select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='ping_contribution_claims'
+  ) then
+    alter publication supabase_realtime add table public.ping_contribution_claims;
+  end if;
+end $contribution_realtime$;

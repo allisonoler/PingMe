@@ -32,7 +32,7 @@ export default function Home() {
   const { demoMode, demoPings, setDemoPings } = useDemo();
   const [pings, setPings] = useState<Ping[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [view, setView] = useState<"list" | "map">("list");
+  const [view, setView] = useState<"list" | "map">("map");
   const [now, setNow] = useState(Date.now());
   const [notice, setNotice] = useState("");
   const [attendeePingId, setAttendeePingId] = useState<string | null>(null);

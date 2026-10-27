@@ -62,6 +62,42 @@ export function timeLeft(expiresAt: string, now: number) {
   return `Ends in ${hours}h${rest ? ` ${rest}m` : ""}`;
 }
 
+/** Calendar labels use local dates, including across daylight-saving changes. */
+export function pingTimeRange(ping: Pick<Ping, "starts_at" | "expires_at">, now: number) {
+  if (!ping.starts_at) return null;
+  const start = new Date(ping.starts_at);
+  const end = new Date(ping.expires_at);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return null;
+  const today = new Date(now);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const day = (date: Date) =>
+    date.toDateString() === today.toDateString()
+      ? "Today"
+      : date.toDateString() === tomorrow.toDateString()
+        ? "Tomorrow"
+        : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const clock = (date: Date) => date.toLocaleTimeString(undefined, {
+    hour: "numeric", minute: "2-digit",
+  });
+  const endDay = start.toDateString() === end.toDateString() ? "" : `${day(end)}, `;
+  return `${day(start)} · ${clock(start)} – ${endDay}${clock(end)}`;
+}
+
+export function pingTimeStatus(ping: Pick<Ping, "starts_at" | "expires_at">, now: number) {
+  if (new Date(ping.expires_at).getTime() <= now) return "Ended";
+  const minutes = ping.starts_at
+    ? Math.ceil((new Date(ping.starts_at).getTime() - now) / 60_000)
+    : 0;
+  if (minutes > 0) {
+    if (minutes < 60) return `Starts in ${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return `Starts in ${hours}h${rest ? ` ${rest}m` : ""}`;
+  }
+  return timeLeft(ping.expires_at, now);
+}
+
 export function withResponse(
   ping: Ping,
   responder?: NonNullable<Ping["ping_acceptances"]>[number],

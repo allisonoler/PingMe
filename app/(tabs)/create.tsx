@@ -1,15 +1,22 @@
 import { Alert } from "react-native";
+import { useCallback, useState } from "react";
 import { router } from "expo-router";
 import { PingForm, type PingFields } from "../../components/PingForm";
 import { supabase } from "../../lib/supabase";
 import { useDemo } from "../../lib/demo";
+import { PingSent } from "../../components/PingSent";
 
 export default function Create() {
   const { demoMode, createDemoPing } = useDemo();
+  const [sent, setSent] = useState(false);
+  const finish = useCallback(() => {
+    setSent(false);
+    router.replace("/home");
+  }, []);
   async function create(fields: PingFields) {
     if (demoMode) {
       createDemoPing(fields);
-      router.replace("/home");
+      setSent(true);
       return true;
     }
     const {
@@ -28,21 +35,24 @@ export default function Create() {
     void supabase.functions.invoke("notify-ping", {
       body: { pingId: ping.id },
     });
-    router.replace("/home");
+    setSent(true);
     return true;
   }
 
   return (
-    <PingForm
-      title="New ping"
-      subtitle="Let friends know what you’re up for."
-      submitTitle={demoMode ? "Add demo ping" : "Share ping with friends"}
-      footnote={
-        demoMode
-          ? "Demo only. This ping stays on this device."
-          : "Only friends can see this ping."
-      }
-      onSubmit={create}
-    />
+    <>
+      <PingForm
+        title="New ping"
+        subtitle="Let friends know what you’re up for."
+        submitTitle={demoMode ? "Add demo ping" : "Share ping with friends"}
+        footnote={
+          demoMode
+            ? "Demo only. This ping stays on this device."
+            : "Only friends can see this ping."
+        }
+        onSubmit={create}
+      />
+      {sent ? <PingSent demoMode={demoMode} onDone={finish} /> : null}
+    </>
   );
 }

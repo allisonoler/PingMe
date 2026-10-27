@@ -13,7 +13,7 @@ import { Button, Row } from "./ui";
 import { activityTone, colors, hit, space } from "../lib/theme";
 import { Avatar } from "./Avatar";
 import { nameOf } from "../lib/identity";
-import { activityIcon, timeLeft, type Ping } from "../lib/pings";
+import { activityIcon, pingTimeRange, pingTimeStatus, type Ping } from "../lib/pings";
 
 export function PingCard({
   ping: p,
@@ -73,6 +73,7 @@ export function PingCard({
   const people = p.ping_acceptances?.slice(0, 3) || [];
   const count = p.acceptance_count || 0;
   const tone = activityTone(p.activity);
+  const timeRange = pingTimeRange(p, now);
   return (
     <View style={s.card}>
       <View style={s.content}>
@@ -94,9 +95,15 @@ export function PingCard({
             </View>
           </Row>
           <View style={s.expiry}>
-            <Text style={s.expiryText}>{timeLeft(p.expires_at, now)}</Text>
+            <Text style={s.expiryText}>{pingTimeStatus(p, now)}</Text>
           </View>
         </Row>
+        {timeRange ? (
+          <Row gap={5} style={{ alignItems: "flex-start" }}>
+            <Ionicons name="time-outline" size={15} color={colors.green} style={{ marginTop: 2 }} />
+            <Text style={s.schedule}>{timeRange}</Text>
+          </Row>
+        ) : null}
         {p.description ? (
           <Text style={s.description}>{p.description}</Text>
         ) : null}
@@ -215,6 +222,7 @@ const s = StyleSheet.create({
     color: colors.muted,
   },
   description: { fontSize: 14, lineHeight: 20, color: colors.ink },
+  schedule: { fontSize: 13, lineHeight: 19, fontWeight: "600", color: colors.green, flex: 1 },
   location: { fontSize: 12, lineHeight: 17, color: colors.muted, flex: 1 },
   footer: {
     backgroundColor: colors.surfaceAlt,

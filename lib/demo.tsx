@@ -17,9 +17,9 @@ type DemoPlan = {
   activity: string;
   title: string;
   description: string;
-  location_name: string;
-  latitude: number;
-  longitude: number;
+  location_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
   minutes: number;
   count: number;
   max_people: number | null;
@@ -44,7 +44,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 35,
       count: 2,
       max_people: 4,
-      contribution_requests: ["Extra paddle", "Water"],
+      contribution_requests: ["Extra paddle"],
       updates: [{ author: "friend", body: "I’ve got the extra paddle. Just bring yourself!" }],
     },
     {
@@ -57,7 +57,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 80,
       count: 2,
       max_people: null,
-      contribution_requests: ["Snacks", "Chargers"],
+      contribution_requests: [],
       updates: [{ author: "friend", body: "I’ll bring snacks. Anyone want to quiz each other afterward?" }],
     },
     {
@@ -70,7 +70,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 110,
       count: 5,
       max_people: 6,
-      contribution_requests: ["Bring a ball", "Water", "Ride"],
+      contribution_requests: ["Bring a ball", "Ride"],
       updates: [{ author: "friend", body: "I’ve got the ball. We can sort out teams when we get there." }],
     },
     {
@@ -84,10 +84,10 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 90,
       count: 2,
       max_people: 6,
-      contribution_requests: ["Watercolors", "Extra paper", "Share a technique"],
+      contribution_requests: ["Watercolors", "Extra paper"],
       youHost: true,
       updates: [
-        { author: "host", body: "No experience needed. Let’s each share one little technique." },
+        { author: "host", body: "No experience needed. Bring whatever you’d like to work on." },
         { author: "friend", body: "I’ll bring watercolors and extra brushes for anyone who needs them." },
       ],
     },
@@ -102,7 +102,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 45,
       count: 2,
       max_people: 5,
-      contribution_requests: ["Time my speech", "Give feedback", "Record a practice run"],
+      contribution_requests: ["Time my speech", "Give feedback"],
       youJoin: true,
       yourContribution: "Time my speech",
       friendContribution: "Give feedback",
@@ -123,7 +123,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 75,
       count: 1,
       max_people: 6,
-      contribution_requests: ["Tortillas", "Salsa", "Help cook"],
+      contribution_requests: ["Tortillas", "Salsa"],
       updates: [{ author: "friend", body: "I’ve got tortillas. I can also come a little early to help chop." }],
     },
     {
@@ -137,13 +137,13 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 50,
       count: 1,
       max_people: null,
-      contribution_requests: ["Pick the route", "Share photo tips"],
+      contribution_requests: [],
       updates: [{ author: "friend", body: "I’ll pick a short route with a few spots to practice portraits." }],
     },
     {
       activity: "Gym",
-      title: "Workout buddy wanted",
-      description: "Looking for a workout buddy. Let’s plan a session together, swap tips, and spot each other. Beginners welcome.",
+      title: "Gym buddy?",
+      description: "Anyone want to lift together? Mostly just looking for company and a spotter. Beginners welcome.",
       location_name: "Workout buddies · Orem",
       latitude: 40.2878,
       longitude: -111.6885,
@@ -151,8 +151,22 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       minutes: 60,
       count: 0,
       max_people: 2,
-      contribution_requests: ["Plan the warm-up", "Share a workout"],
-      updates: [{ author: "host", body: "I’m happy to spot or swap workout ideas. We can pick a pace that works for both of us." }],
+      contribution_requests: [],
+      updates: [{ author: "host", body: "I’m doing an easy session. Happy to go at your pace." }],
+    },
+    {
+      activity: "Other",
+      title: "Lucid Hackathon",
+      description: "Come watch me present my new app and there's free pizza! 🍕",
+      location_name: null,
+      latitude: null,
+      longitude: null,
+      startsIn: 20,
+      minutes: 120,
+      count: 1,
+      max_people: null,
+      contribution_requests: [],
+      updates: [],
     },
   ];
   return plans.map((plan, index) => {
@@ -162,6 +176,7 @@ export function makeDemoPings(now = Date.now()): Ping[] {
     );
     const attendees = plan.youJoin ? [...friends, demoYou] : friends;
     const helper = friends[0];
+    const friendContribution = plan.friendContribution || plan.contribution_requests[0];
     const startsAt = now + (plan.startsIn || 0) * 60_000;
     return {
       id: `demo-ping-${index}`,
@@ -181,8 +196,8 @@ export function makeDemoPings(now = Date.now()): Ping[] {
       is_own: !!plan.youHost,
       acceptance_count: attendees.length,
       contribution_claims: [
-        ...(helper ? [{
-          label: plan.friendContribution || plan.contribution_requests[0],
+        ...(helper && friendContribution ? [{
+          label: friendContribution,
           user_id: helper.id,
           username: helper.username,
           display_name: helper.display_name,

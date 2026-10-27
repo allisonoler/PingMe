@@ -195,7 +195,7 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
       setNotice(
         p.accepted
           ? "You're off the list. Next time!"
-          : "You're in. See you there!",
+          : "You’re in! Find this plan in My Events.",
       );
       return;
     }
@@ -223,7 +223,7 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
       setNotice(
         p.accepted
           ? "You're off the list. Next time!"
-          : "You're in. See you there!",
+          : "You’re in! Find this plan in My Events.",
       );
     } catch (error) {
       setPings((items) => items.map((item) => (item.id === p.id ? p : item)));
@@ -274,7 +274,7 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
     }
   }
   const visible = (demoMode ? demoPings : pings).filter(
-    (p) => new Date(p.expires_at).getTime() > now && (!onlyMine || p.accepted || p.is_own),
+    (p) => new Date(p.expires_at).getTime() > now && (onlyMine ? p.accepted || p.is_own : !p.accepted && !p.is_own),
   );
   if (onlyMine) visible.sort((a, b) =>
     new Date(a.starts_at || a.expires_at).getTime() - new Date(b.starts_at || b.expires_at).getTime(),
@@ -418,7 +418,7 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
               </Pressable>
             </Row>
             <Row spread style={{ marginBottom: space.sm }}>
-              <Text style={[type.title, { fontSize: 16 }]}>Around you</Text>
+              <Text style={[type.title, { fontSize: 16 }]}>New pings</Text>
               <View
                 style={{
                   backgroundColor: colors.mint,
@@ -438,7 +438,7 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
                 </Text>
               </View>
             </Row>
-            {view === "map" ? (
+            {view === "map" && visible.length > 0 ? (
               <View style={{ marginBottom: space.lg }}>
                 <PingMap pings={visible} />
               </View>
@@ -458,13 +458,13 @@ export function PingFeed({ onlyMine = false }: { onlyMine?: boolean }) {
           ) : (
           <Empty
             icon="radio-outline"
-            title="It's quiet for now"
-            description="Start a ping and invite a friend to join you."
+            title="No new pings"
+            description="Check My Events for plans you’ve joined or are hosting."
           >
             <Button
-              title="Create a ping"
-              icon="add"
-              onPress={() => router.push("/create")}
+              title="My Events"
+              icon="calendar-outline"
+              onPress={() => router.navigate("/my-events")}
             />
           </Empty>
           )

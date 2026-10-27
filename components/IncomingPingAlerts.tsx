@@ -140,21 +140,20 @@ export function IncomingPingAlerts() {
             color={colors.white}
             size={26}
           />
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[type.label, { color: "#CDEAD8", fontSize: 10 }]}>
               NEW FRIEND PING
             </Text>
             <Text
               style={[type.bodyStrong, { color: colors.white }]}
-              numberOfLines={1}
             >
-              {nameOf(current.profiles)} · {pingTitle(current)}
+              {pingTitle(current)}
             </Text>
             <Text
               style={[type.small, { color: colors.white }]}
               numberOfLines={2}
             >
-              {current.description || "Anyone in? Tap to see the plan."}
+              {nameOf(current.profiles)} · {current.description || "Anyone in? Tap to see the plan."}
             </Text>
           </View>
         </Pressable>

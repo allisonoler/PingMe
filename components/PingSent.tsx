@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button } from "./ui";
 import { colors, radius, space, type } from "../lib/theme";
 
-/** Mounted only after saving succeeds; closing it returns to the feed. */
+/** Mounted only after saving succeeds; closing it opens My Events. */
 export function PingSent({ demoMode, onDone }: { demoMode: boolean; onDone: () => void }) {
   const progress = useRef(new Animated.Value(0)).current;
   const pop = useRef(new Animated.Value(0)).current;
@@ -56,9 +56,9 @@ export function PingSent({ demoMode, onDone }: { demoMode: boolean; onDone: () =
             {demoMode ? "Demo ping is ready" : "Your ping is out"}
           </Text>
           <Text style={[type.subtitle, s.center]}>
-            {demoMode ? "Your plan is in the demo feed." : "Your plan is shared with friends. Let the hangout begin."}
+            {demoMode ? "Your plan is ready in My Events." : "Your plan is shared with friends. Find it in My Events."}
           </Text>
-          <Button title="See pings" onPress={onDone} />
+          <Button title="My Events" onPress={onDone} />
         </View>
       </View>
     </Modal>

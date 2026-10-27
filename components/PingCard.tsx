@@ -111,8 +111,8 @@ export function PingCard({
   return (
     <View style={s.card}>
       <View style={s.content}>
-        <Row spread gap={space.sm} style={{ alignItems: "flex-start" }}>
-          <Row gap={space.md} style={{ flex: 1 }}>
+        <Row spread gap={space.sm}>
+          <Row gap={space.md} style={{ flex: 1, minWidth: 0 }}>
             <View style={[s.activity, { backgroundColor: tone.background }]}>
               <ActivityIcon
                 activity={p.activity}
@@ -120,12 +120,10 @@ export function PingCard({
                 color={tone.ink}
               />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.title} numberOfLines={2}>{pingTitle(p)}</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {p.title?.trim() ? <Text style={s.category} numberOfLines={1}>{p.activity}</Text> : null}
               <Text style={s.host} numberOfLines={1}>
-                {p.title?.trim() ? `${p.activity} · ` : ""}
-                {nameOf(p.profiles)}
-                {p.is_own ? " · Your ping" : ""}
+                {p.is_own ? "You · Hosting" : nameOf(p.profiles)}
               </Text>
             </View>
           </Row>
@@ -134,6 +132,7 @@ export function PingCard({
             <Text style={s.expiryText}>{expiry}</Text>
           </View>
         </Row>
+        <Text style={s.title}>{pingTitle(p)}</Text>
         {timeRange ? (
           <Row gap={5} style={{ alignItems: "flex-start" }}>
             <Ionicons name="calendar-outline" size={15} color={colors.green} style={{ marginTop: 2 }} />
@@ -263,6 +262,7 @@ const s = StyleSheet.create({
   },
   content: { padding: space.lg, gap: space.md },
   activity: {
+    flexShrink: 0,
     width: 42,
     height: 42,
     borderRadius: 13,
@@ -271,13 +271,15 @@ const s = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    lineHeight: 24,
+    lineHeight: 27,
     fontWeight: "700",
     letterSpacing: -0.4,
     color: colors.ink,
   },
-  host: { fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 1 },
+  category: { fontSize: 12, lineHeight: 17, fontWeight: "600", color: colors.ink },
+  host: { fontSize: 12, lineHeight: 17, color: colors.muted },
   expiry: {
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,

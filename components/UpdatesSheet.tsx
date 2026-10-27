@@ -109,9 +109,9 @@ export function UpdatesSheet({ ping, onClose }: { ping: Ping; onClose: () => voi
         <Pressable accessibilityRole="button" accessibilityLabel="Close event updates" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
         <View accessibilityViewIsModal style={{ height: "80%", backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.xl, paddingBottom: Math.max(insets.bottom, space.lg), gap: space.lg }}>
           <Row spread gap={space.md}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text accessibilityRole="header" style={type.title}>Updates</Text>
-              <Text style={type.small} numberOfLines={2}>{pingTitle(ping)}</Text>
+              <Text style={type.small}>{pingTitle(ping)}</Text>
             </View>
             <IconButton icon="close" label="Close event updates" onPress={onClose} />
           </Row>

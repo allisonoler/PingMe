@@ -41,6 +41,10 @@ supabase functions deploy notify-ping
 
 The function uses Supabase's `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` server secrets. Those are provisioned in hosted Supabase Functions automatically. It sends Expo Push messages only to accepted friends with a registered device and enabled global, sender, and activity preferences. Ping data remains saved if push delivery is unavailable.
 
+### Without a build
+
+Expo Go dropped remote push in SDK 53, so builds that cannot register a push token fall back to Realtime. A friend's ping shows as an in-app banner while PingMe is open, and as a local notification while it is backgrounded but still running. The fallback needs neither `notify-ping` nor an EAS build, and it applies the same mute preferences. It is genuinely a fallback: once the OS suspends the app the Realtime socket closes with it, and pings sent after that are missed rather than queued. Devices that can hold a push token skip it entirely so no ping is announced twice, and turning the Settings switch off silences both paths.
+
 ## Push and store builds
 
 Create/link an EAS project with `eas init`, set its project ID under `expo.extra.eas.projectId` in `app.json`, and add `GOOGLE_MAPS_API_KEY` to your local build environment and EAS environment variables. Enable Google Maps SDK for Android and restrict the key to this app's package and signing certificates. Register physical devices from Settings. Push notifications require an EAS development or production build and valid iOS/Android credentials. Set the final bundle identifier/package name before the first store submission. Build with `eas build --platform all --profile production`; store submission additionally needs the relevant App Store Connect and Google Play credentials.

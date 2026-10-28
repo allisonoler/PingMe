@@ -8,11 +8,21 @@ import { useDemo } from "../lib/demo";
 import { supabase } from "../lib/supabase";
 import { nameOf } from "../lib/identity";
 import { shouldAnnouncePing, type IncomingPing } from "../lib/incomingPings";
+import {
+  ensureIncomingPingNotifications,
+  notifyIncomingPing,
+} from "../lib/localNotifications";
 import { ActivityIcon } from "./ActivityIcon";
 import { pingTitle } from "../lib/pings";
 import { colors, hit, radius, space, type } from "../lib/theme";
 
-/** Foreground alerts use Realtime, so they also work in Expo Go and on web. */
+/**
+ * Friend pings arrive over Realtime, so this works in Expo Go and on web where
+ * remote push does not exist. One subscription feeds two destinations: the
+ * in-app banner while someone is looking at the app, and a local notification
+ * while they are not. The subscription deliberately outlives the foreground —
+ * the moment it is torn down the tray fallback has nothing left to fire on.
+ */
 export function IncomingPingAlerts() {
   const { session, configured } = useAuth();
   const { demoMode } = useDemo();
@@ -33,9 +43,10 @@ export function IncomingPingAlerts() {
     setQueue([]);
   }, [userId, demoMode]);
   useEffect(() => {
-    if (!userId || !configured || demoMode || !active) return;
+    if (!userId || !configured || demoMode) return;
     let cancelled = false;
     const pending = new Set<string>();
+    void ensureIncomingPingNotifications();
     async function announce(id: unknown) {
       if (typeof id !== "string" || seen.current.has(id) || pending.has(id))
         return;
@@ -56,14 +67,22 @@ export function IncomingPingAlerts() {
           .select("friend_id,activity,enabled")
           .eq("user_id", userId!);
         // Fail closed if mute preferences cannot be checked.
-        if (preferenceError || cancelled || AppState.currentState !== "active")
-          return;
+        if (preferenceError || cancelled) return;
         const incoming = ping as unknown as IncomingPing;
         if (!shouldAnnouncePing(incoming, userId!, preferences || [])) return;
         seen.current.add(id);
         if (seen.current.size > 200)
           seen.current.delete(seen.current.values().next().value!);
-        setQueue((items) => [...items, incoming].slice(-5));
+        // Read live rather than from `active`: this closure is not re-created
+        // when the app changes state, and the two destinations are exclusive.
+        if (AppState.currentState === "active")
+          setQueue((items) => [...items, incoming].slice(-5));
+        else
+          await notifyIncomingPing({
+            id: incoming.id,
+            title: pingTitle(incoming),
+            body: `${nameOf(incoming.profiles)} · ${incoming.description || "Anyone in? Tap to see the plan."}`,
+          });
       } catch {
         // A reconnect or transient request failure must not interrupt the app.
       } finally {
@@ -84,7 +103,7 @@ export function IncomingPingAlerts() {
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [userId, configured, demoMode, active]);
+  }, [userId, configured, demoMode]);
 
   const current = queue[0];
   useEffect(() => {

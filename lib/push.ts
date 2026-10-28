@@ -6,6 +6,7 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { AndroidImportance } from "expo-notifications/build/NotificationChannelManager.types";
 import { useAuth } from "./auth";
+import { authStorage } from "./authStorage";
 import { supabase } from "./supabase";
 import { colors } from "./theme";
 
@@ -143,16 +144,20 @@ const OPT_OUT_KEY = "pingme.push.optOut";
 
 export function setPushOptOut(optedOut: boolean): void {
   try {
-    if (optedOut) localStorage.setItem(OPT_OUT_KEY, "1");
-    else localStorage.removeItem(OPT_OUT_KEY);
+    if (optedOut) authStorage.setItem(OPT_OUT_KEY, "1");
+    else authStorage.removeItem(OPT_OUT_KEY);
   } catch {
     // Storage is best-effort; a lost flag only costs a re-registration.
   }
 }
 
-function pushOptedOut(): boolean {
+/**
+ * Read by the local fallback too: turning the switch off is a decision about
+ * notifications, not about the transport that happens to carry them.
+ */
+export function pushOptedOut(): boolean {
   try {
-    return localStorage.getItem(OPT_OUT_KEY) === "1";
+    return authStorage.getItem(OPT_OUT_KEY) === "1";
   } catch {
     return false;
   }

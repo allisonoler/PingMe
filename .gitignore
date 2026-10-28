@@ -10,3 +10,11 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+
+# Push credentials. The FCM service account key is a secret and must never be
+# committed; google-services.json ships inside the app but is per-project, so
+# it stays out of the repo too and is fetched from Firebase when needed.
+google-services.json
+google-service-account*.json
+*-firebase-adminsdk-*.json
+AuthKey_*.p8

@@ -11,7 +11,7 @@ export default function Create() {
   const [sent, setSent] = useState(false);
   const finish = useCallback(() => {
     setSent(false);
-    router.replace("/my-events");
+    router.replace("/home");
   }, []);
   async function create(fields: PingFields) {
     if (demoMode) {

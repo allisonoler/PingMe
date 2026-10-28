@@ -18,7 +18,6 @@ type IconPair = {
 
 const icons: Record<string, IconPair> = {
   home: { on: "radio", off: "radio-outline" },
-  "my-events": { on: "calendar", off: "calendar-outline" },
   friends: { on: "people", off: "people-outline" },
   create: { on: "add-circle", off: "add-circle-outline" },
   settings: { on: "settings", off: "settings-outline" },
@@ -103,7 +102,6 @@ export default function TabLayout() {
           })}
         >
           <Tabs.Screen name="home" options={{ title: "Pings" }} />
-          <Tabs.Screen name="my-events" options={{ title: "My Events" }} />
           <Tabs.Screen name="create" options={{ title: "New ping" }} />
           <Tabs.Screen name="friends" options={{ title: "Friends" }} />
           <Tabs.Screen name="settings" options={{ title: "Settings" }} />

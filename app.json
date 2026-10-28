@@ -17,8 +17,13 @@
       ],
       "expo-notifications"
     ],
-    "experiments": { "typedRoutes": true },
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.pingme.app" },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pingme.app"
+    },
     "android": {
       "package": "com.pingme.app",
       "permissions": [
@@ -27,6 +32,19 @@
         "POST_NOTIFICATIONS"
       ]
     },
-    "web": { "bundler": "metro" }
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "cf9b4405-e243-49db-943b-a47b48f95762"
+      }
+    },
+    "owner": "athayer0"
   }
 }

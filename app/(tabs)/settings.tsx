@@ -235,10 +235,10 @@ export default function Settings() {
               <Column>
                 <Text style={type.body}>
                   Host an art hangout, help time a speech, or fill the last
-                  pickleball spot. My Events has your plans and contributions.
-                  Everything stays on this device.
+                  pickleball spot. Filter the pings tab to see what you have
+                  joined. Everything stays on this device.
                 </Text>
-                <Button title="Open My Events" icon="calendar-outline" variant="secondary" onPress={() => router.navigate("/my-events")} />
+                <Button title="Open pings" icon="radio-outline" variant="secondary" onPress={() => router.navigate("/home")} />
                 <Button
                   title="Reset demo"
                   variant="secondary"

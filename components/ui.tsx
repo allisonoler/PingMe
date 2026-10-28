@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Modal,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
   View,
   ViewProps,
   ViewStyle,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -594,6 +596,104 @@ export function Chip({
   );
 }
 
+/**
+ * Select-one control for a short list of named views, like the ping filter.
+ * The menu is a Modal rather than an absolutely positioned panel so it floats
+ * over the list it filters instead of being clipped by it; the trigger is
+ * measured on open so the menu still hangs off its right edge.
+ */
+export function Dropdown<T extends string>({
+  value,
+  options,
+  onChange,
+  accessibilityLabel,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+  accessibilityLabel?: string;
+}) {
+  const { width: screenWidth } = useWindowDimensions();
+  const [open, setOpen] = React.useState(false);
+  const [anchor, setAnchor] = React.useState({ top: 0, right: space.xl });
+  const trigger = React.useRef<React.ComponentRef<typeof Pressable>>(null);
+  const current = options.find((option) => option.value === value);
+  return (
+    <>
+      <Pressable
+        ref={trigger}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityValue={{ text: current?.label }}
+        accessibilityState={{ expanded: open }}
+        onPress={() =>
+          trigger.current?.measureInWindow((x, y, width, height) => {
+            setAnchor({
+              top: y + height + space.xs,
+              right: Math.max(space.md, screenWidth - (x + width)),
+            });
+            setOpen(true);
+          })
+        }
+        style={({ pressed }) => [s.dropdown, pressed && { opacity: 0.6 }]}
+      >
+        <Text style={[type.bodyStrong, { color: colors.green }]} numberOfLines={1}>
+          {current?.label || "Filter"}
+        </Text>
+        <Ionicons name="chevron-down" size={15} color={colors.green} />
+      </Pressable>
+      <Modal
+        transparent
+        visible={open}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close filter"
+          onPress={() => setOpen(false)}
+          style={s.dropdownBackdrop}
+        >
+          <View style={[s.dropdownMenu, { top: anchor.top, right: anchor.right }]}>
+            {options.map((option, index) => (
+              <React.Fragment key={option.value}>
+                {index > 0 ? <View style={s.divider} /> : null}
+                <Pressable
+                  accessibilityRole="menuitem"
+                  accessibilityState={{ selected: option.value === value }}
+                  onPress={() => {
+                    setOpen(false);
+                    if (option.value !== value) onChange(option.value);
+                  }}
+                  style={({ pressed }) => [
+                    s.dropdownOption,
+                    pressed && { backgroundColor: colors.surfaceAlt },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      type.body,
+                      option.value === value && {
+                        fontWeight: "700",
+                        color: colors.green,
+                      },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {option.value === value ? (
+                    <Ionicons name="checkmark" size={16} color={colors.green} />
+                  ) : null}
+                </Pressable>
+              </React.Fragment>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
 /** Non-interactive pill, for things like a ping's activity. */
 export function Badge({ label }: { label: string }) {
   return (
@@ -822,6 +922,35 @@ const s = StyleSheet.create({
   },
   chipSelected: { backgroundColor: colors.green, borderColor: colors.green },
   chipText: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  dropdown: {
+    minHeight: hit,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+  },
+  dropdownBackdrop: { flex: 1, backgroundColor: "rgba(24,46,37,0.2)" },
+  dropdownMenu: {
+    position: "absolute",
+    minWidth: 190,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  },
+  dropdownOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.md,
+    minHeight: hit,
+    paddingHorizontal: space.lg,
+  },
   badge: {
     alignSelf: "flex-start",
     backgroundColor: colors.mint,

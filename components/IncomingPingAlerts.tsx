@@ -130,7 +130,9 @@ export function IncomingPingAlerts() {
           left: space.lg,
           right: space.lg,
           borderRadius: radius.lg,
-          backgroundColor: colors.green,
+          backgroundColor: colors.notice,
+          borderWidth: 1,
+          borderColor: colors.noticeLine,
           padding: space.md,
           elevation: 12,
           boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
@@ -154,24 +156,17 @@ export function IncomingPingAlerts() {
             gap: space.md,
           }}
         >
+          {/* The one spot of colour left, standing in for the app badge a real
+              notification would carry. */}
           <ActivityIcon
             activity={current.activity}
-            color={colors.white}
+            color={colors.green}
             size={26}
           />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[type.label, { color: "#CDEAD8", fontSize: 10 }]}>
-              NEW FRIEND PING
-            </Text>
-            <Text
-              style={[type.bodyStrong, { color: colors.white }]}
-            >
-              {pingTitle(current)}
-            </Text>
-            <Text
-              style={[type.small, { color: colors.white }]}
-              numberOfLines={2}
-            >
+            <Text style={[type.label, { fontSize: 10 }]}>NEW FRIEND PING</Text>
+            <Text style={type.bodyStrong}>{pingTitle(current)}</Text>
+            <Text style={type.small} numberOfLines={2}>
               {nameOf(current.profiles)} · {current.description || "Anyone in? Tap to see the plan."}
             </Text>
           </View>
@@ -187,7 +182,7 @@ export function IncomingPingAlerts() {
             justifyContent: "center",
           }}
         >
-          <Ionicons name="close" size={22} color={colors.white} />
+          <Ionicons name="close" size={22} color={colors.muted} />
         </Pressable>
       </View>
     </View>

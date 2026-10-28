@@ -20,6 +20,14 @@ export const colors = {
   red: "#C94C4C",
   redSoft: "#FBEEEE",
   placeholder: "#8B978F",
+  // The incoming-ping banner stands in for a system notification, which reads
+  // as a light sheet over whatever is behind it rather than a brand-coloured
+  // block. Translucent, so it borrows a little of the screen underneath, and
+  // near-neutral so it does not compete with the green chrome it floats over.
+  notice: "rgba(244, 245, 243, 0.94)",
+  // A solid fill needs no outline; a pale one does, or it dissolves into the
+  // canvas behind it.
+  noticeLine: "rgba(24, 46, 37, 0.10)",
 };
 
 // A 4px grid. Every margin, padding and gap in the app reads from here so the
